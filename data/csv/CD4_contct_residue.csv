@@ -1,0 +1,23 @@
+Start_AA,End_AA,description
+124,127, CD4 contact both main-chain and side-chain
+168,168, CD4 contanct side-chain only
+279,283, CD4 contact residue both main-chain and side-chain
+364,365, CD4 contact residue only mian-chain
+366,368, CD4 contact both residue both mian-chain and side-chain
+369,370, CD4 contact residue only side-chain
+374,374, CD4 contact residue only sidde-chain
+425,425, CD4 contact residue both main-chain and side-chain
+426,426, CD4 contact residue main-chain only
+427,427, CD4 contact both main-chain and side-chain
+428,428, CD4 contact only main-chain
+429,430, CD4 contact both main-chain and side-chain
+431,432, CD4 contact only main-chain
+455,456, CD4 contact only side-chain
+457,457, CD4 contact both main-chain and side-chain
+458,459, CD4 contact only main-chain
+460,460, both main-chain and side-chain
+461,461, only side-chain
+469,469, only side-chain
+471,473, only main-chain
+474,474, both main-chain and side-chain
+475,477, only side-chain
