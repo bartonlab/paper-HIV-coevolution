@@ -1,3 +1,5 @@
+
+
 struct HXB2
     idx_nuc::Union{Number, Missing, Nothing}
     idx_AA::Union{String, Missing, Nothing}
@@ -19,14 +21,7 @@ end;
 idx_n2a(iL, iR) = Int(floor((iR+1-iL)/3)+1)
 idx_n2a(iL, iR, fr) = Int(floor((iR+3-fr-iL)/3)+1)
 function map_numNUC_to_numAA(x, fr_set)
-    x = string(x)
-    i_hxb2 = -1
-    if !has_letters(x)
-        i_hxb2 = parse(Int, x)
-    else
-        this_nuc = match(r"\d+", x).match
-        i_hxb2 = parse(Int, this_nuc)
-    end
+    get_num_nuc(x) = i_hxb2
     gen_set, i_AA_set = ["" for _ in 1:3], ["" for _ in 1:3]
     for i_fr in 1:length(fr_set)
         fr = fr_set[i_fr]
@@ -51,12 +46,13 @@ function map_numNUC_to_numAA(x, fr_set)
         gen_set[fr] = gen; i_AA_set[fr] = string(i_AA) 
     end
     return i_hxb2, i_AA_set, gen_set
-end;
+end
 
 function has_letters(str)
     # Check if the string contains any letters (A-Z or a-z)
     return occursin(r"[A-Za-z]", str)
-end;
+end
+
 function search_HXB2(hxb2_set, target_idx)
     for obj in hxb2_set
         if obj.idx_nuc == target_idx
@@ -64,7 +60,7 @@ function search_HXB2(hxb2_set, target_idx)
         end
     end
     return nothing, nothing  # Return nothing if target_a1 is not found
-end;
+end
 
 function get_total_index_variable_region(csv_raw_in)
     len_csv_raw_in = length(csv_raw_in.End_AA)
@@ -76,7 +72,7 @@ function get_total_index_variable_region(csv_raw_in)
     end
     csv_raw_in_index_set = copy(unique(csv_raw_in_index_set))
     return csv_raw_in_index_set
-end;
+end
 
 function print_matrix(matrix)
     rows, cols = size(matrix)
@@ -86,7 +82,8 @@ function print_matrix(matrix)
         end
         println()
     end
-end;
+end
+
 function get_when_mutation_occored(date_num, observed_nuc, a_WT)
     @assert length(date_num) == length(observed_nuc)
     n_entry = length(observed_nuc)
@@ -96,6 +93,10 @@ function get_when_mutation_occored(date_num, observed_nuc, a_WT)
         if(a_MT != a_WT && a_MT ∉ a_MT_set)
             push!(a_MT_set, a_MT)
             push!(date_mut_set, date_num[n])
+        end
+    end
+    return a_MT_set, date_mut_set
+end
         end
     end
     return a_MT_set, date_mut_set    
@@ -196,8 +197,6 @@ function get_possible_glycan(i_mut, i_raw, date_mut_set, NUC, a_MT_set, n_poly_i
     SorT = ["S", "T"]
     n_plus_glycan, n_minus_glycan, n_glycan_shift = zeros(Int,3), zeros(Int,3), zeros(Int,3)
     #if( 6225<= idx_hxb2 <= 8795)
-        codon_set_tot_after = []
-        codon_set_tot_before = []
 
         date_mut = date_mut_set[i_mut]
         data_after_mut = copy(data_num[collected_time .== date_mut, :])
@@ -357,10 +356,8 @@ function Make_combination_of_mutations_with_genetic_background_w_glycan(csv_inde
     data_num = copy(seq_num_raw[:, 3:end]);
     collected_time_unique = sort(unique(collected_time), rev=false) # ensure that this is assending order. 
     n_time_max = length(collected_time_unique)
-    data_num_temp = []
     idx_only_poly = csv_index_and_TF.polymorphic .!= "NA"
     mutant_types_set_nuc = [];
-    date_mutation_detected = [];
     
     # Look at only the site is !="NA"
     mutant_hxb2 = []
@@ -781,7 +778,6 @@ function get_csv_RMs(f_dir, csv_index_and_TF, s_MPL_RMs, s_SL_RMs, dx_RMs, fname
     consensus_set = []; edge_gap_set = []; exposed_set = []
     flanking_set = []; glycan_set = []; s_MPL_set = []
     s_SL_set = []; nonsynonymous_set = [] 
-    glycan_set_RM_plus = []; glycan_set_RM_minus = [] 
     for k in 1:length(fname_key_RMs_and_Human)
         f_key = fname_key_RMs_and_Human[k]
         fname_csv = f_dir *f_key* "-3-poly.csv"
@@ -827,7 +823,6 @@ function get_csv_RMs(f_dir, csv_index_and_TF, s_MPL_RMs, s_SL_RMs, dx_RMs, fname
 
     polymorphic_index_global = []
     nucleotide_global = []
-    alignment_index_global = []
     HXB2_index_global = []
     nonsynonymous_global = []
     nonsynonymous_global_RMs = []

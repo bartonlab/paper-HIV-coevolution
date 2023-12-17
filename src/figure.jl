@@ -1,51 +1,4 @@
-"""
-# --------- Define HXB2 indices ---------#
-idx_HXB2_ENV = collect(6225:8795)
-idx_HXB2_GP120 = collect(6225:7758)
-idx_HXB2_GP41 = collect(7758:8795)
-idx_HXB2_V1 = collect(6615:6693)
-idx_HXB2_V2 = collect(6694:6761)
 
-idx_HXB2_V3 = collect(7047:7124)
-idx_HXB2_V4 = collect(7377:7479)
-idx_HXB2_V5 = collect(7622:7708)
-idx_HXB2_LD = collect(6901:7002)
-idx_HXB2_MPER = collect(8560:8714)
-idx_HXB2_CD4BS = collect(6783:6858)
-
-idx_CH103 = []
-push!(idx_CH103, collect(6990:6992))
-push!(idx_CH103, collect(7059:7067))
-push!(idx_CH103, collect(7308:7310))
-push!(idx_CH103, collect(7314:7337))
-push!(idx_CH103, collect(7314:7337))
-push!(idx_CH103, collect(7587:7613))
-push!(idx_CH103, collect(7629:7640))
-
-idx_CH235 = []
-push!(idx_CH235, collect(6510:6515))
-push!(idx_CH235, collect(7047:7073))
-push!(idx_CH235, collect(7317:7328))
-push!(idx_CH235, collect(7335:7337))
-push!(idx_CH235, collect(7500:7502))
-push!(idx_CH235, collect(7509:7511))
-push!(idx_CH235, collect(7515:7520))
-push!(idx_CH235, collect(7587:7607))
-push!(idx_CH235, collect(7629:7640))
-push!(idx_CH235, collect(7644:7646))
-push!(idx_CH235, collect(7653:7655))
-push!(idx_CH235, collect(7662:7664));
-
-idx_autologus = []
-push!(idx_autologus, collect(6813:6815))
-push!(idx_autologus, collect(7050:7052))
-push!(idx_autologus, collect(7059:7064))
-push!(idx_autologus, collect(7101:7103))
-push!(idx_autologus, collect(7308:7310))
-push!(idx_autologus, collect(7317:7319))
-push!(idx_autologus, collect(7596:7598))
-push!(idx_autologus, collect(7605:7610));
-"""
 # ------------------- Gene map used only for CH848 ------------------ #
 gene_set_unique = ["nef", "env", "vif", "vpr", "rev", "vpu", "tat", "pol"];
 label_gene_set = uppercasefirst.(gene_set_unique)
@@ -176,9 +129,6 @@ function get_selection_vs_time_plot_CH505(csv_raw_CH505, L_fig_tot)
 
     idx_N_add = (csv_raw_CH505.N_linked_glycan_plus_fr1 .> 0) .|| (csv_raw_CH505.N_linked_glycan_plus_fr2 .> 0) .|| (csv_raw_CH505.N_linked_glycan_plus_fr3 .> 0)
     idx_N_rem = (csv_raw_CH505.N_linked_glycan_minus_fr1 .> 0) .|| (csv_raw_CH505.N_linked_glycan_minus_fr2 .> 0) .|| (csv_raw_CH505.N_linked_glycan_minus_fr3 .> 0)
-    idx_N_sht = (csv_raw_CH505.N_linked_glycan_shift_fr1 .> 0) .|| (csv_raw_CH505.N_linked_glycan_shift_fr2 .> 0) .|| csv_raw_CH505.N_linked_glycan_shift_fr3 .> 0
-    idx_N_ind = (csv_raw_CH505.N_linked_glycan_plus_fr1 .== 0) .* (csv_raw_CH505.N_linked_glycan_minus_fr1 .== 0) .* (csv_raw_CH505.N_linked_glycan_plus_fr2 .== 0) .* (csv_raw_CH505.N_linked_glycan_minus_fr2 .== 0) .* (csv_raw_CH505.N_linked_glycan_plus_fr3 .== 0) .* (csv_raw_CH505.N_linked_glycan_minus_fr3 .== 0);
-
 
     c_jitter = 10
     L_fig = Int(ceil(L_fig_tot*0.75*0.5))
@@ -1067,17 +1017,10 @@ end;
 
 function get_selection_vs_time_plot_CH848(csv_raw_CH848, L_fig_tot)
 
-    L_fig = Int(ceil(L_fig_tot*0.75*0.5))
     fontsize_reg = Int(ceil(L_fig_tot/α_gen_sgl * pxl2pt))
     fontsize_label_reg = Int(ceil(L_fig_tot/α_lbl_sgl * pxl2pt))
     my_ms = 5
     myalpha= 0.5
-
-    idx_N_add = (csv_raw_CH848.N_linked_glycan_plus_fr1 .> 0) .|| (csv_raw_CH848.N_linked_glycan_plus_fr2 .> 0) .|| (csv_raw_CH848.N_linked_glycan_plus_fr3 .> 0)
-    idx_N_rem = (csv_raw_CH848.N_linked_glycan_minus_fr1 .> 0) .|| (csv_raw_CH848.N_linked_glycan_minus_fr2 .> 0) .|| (csv_raw_CH848.N_linked_glycan_minus_fr3 .> 0)
-    idx_N_sht = (csv_raw_CH848.N_linked_glycan_shift_fr1 .> 0) .|| (csv_raw_CH848.N_linked_glycan_shift_fr2 .> 0) .|| csv_raw_CH848.N_linked_glycan_shift_fr3 .> 0
-    idx_N_ind = (csv_raw_CH848.N_linked_glycan_plus_fr1 .== 0) .* (csv_raw_CH848.N_linked_glycan_minus_fr1 .== 0) .* (csv_raw_CH848.N_linked_glycan_plus_fr2 .== 0) .* (csv_raw_CH848.N_linked_glycan_minus_fr2 .== 0) .* (csv_raw_CH848.N_linked_glycan_plus_fr3 .== 0) .* (csv_raw_CH848.N_linked_glycan_minus_fr3 .== 0);
-
 
     idx = csv_raw_CH848.resist_mut_DH270
     xaxis = csv_raw_CH848.detected_date[idx]
@@ -1239,7 +1182,6 @@ function get_violin_plot_CH848(csv_raw_CH848, L_fig_tot)
 end;
 
 function get_trajectory_plot_CH848_reduced(csv_raw_CH848, L_fig_tot)    
-    L_fig = Int(ceil(L_fig_tot*0.75*0.5))
     fontsize_reg = Int(ceil(L_fig_tot/α_gen_sgl * pxl2pt))
     fontsize_label_reg = Int(ceil(L_fig_tot/α_lbl_sgl * pxl2pt))
 
@@ -1340,7 +1282,6 @@ end;
 
 function get_selection_vs_time_plot_CH848_reduced(csv_raw_CH848, L_fig_tot)
 
-    L_fig = Int(ceil(L_fig_tot*0.75*0.5))
     fontsize_reg = Int(ceil(L_fig_tot/α_gen_sgl * pxl2pt))
     color_set = [gen_to_color[x] for x in gene_set_unique];
     gene_set_temp = [gen_to_frame[x] for x in gene_set_unique];
@@ -1708,10 +1649,7 @@ function get_heatmap_selected_mutations_CH848(dir_name, L_fig_tot)
         margin=1mm,
     )
     return (p2tot, heatmap_BNB_or_nonBNB_figure, mutation_names_BNB_or_nonBNB_figure, heatmap_only_BNB_figure, mutation_names_only_BNB_figure) 
-
 end;
-
-
 
 function get_selection_vs_time_SHIV848(dir_name, L_fig_tot)
     fname_potent = ["RM6163", "RM6167"]
