@@ -21,7 +21,7 @@ end;
 idx_n2a(iL, iR) = Int(floor((iR+1-iL)/3)+1)
 idx_n2a(iL, iR, fr) = Int(floor((iR+3-fr-iL)/3)+1)
 function map_numNUC_to_numAA(x, fr_set)
-    get_num_nuc(x) = i_hxb2
+    i_hxb2 = get_num_nuc(x) 
     gen_set, i_AA_set = ["" for _ in 1:3], ["" for _ in 1:3]
     for i_fr in 1:length(fr_set)
         fr = fr_set[i_fr]
@@ -96,10 +96,6 @@ function get_when_mutation_occored(date_num, observed_nuc, a_WT)
         end
     end
     return a_MT_set, date_mut_set
-end
-        end
-    end
-    return a_MT_set, date_mut_set    
 end;
 
 
@@ -378,7 +374,7 @@ function Make_combination_of_mutations_with_genetic_background_w_glycan(csv_inde
             # Find when first mutation occared 
             idx_hxb2 = csv_index_and_TF.HXB2[i_raw]
             a_WT = csv_index_and_TF.TF[i_raw]
-            @printf("\ni_raw=%d hxb2=%s a_WT=%s\n", i_raw, idx_hxb2, a_WT)
+            #@printf("\ni_raw=%d hxb2=%s a_WT=%s\n", i_raw, idx_hxb2, a_WT)
             idx_hxb2_num = parse(Int, match(r"\d+", idx_hxb2).match)
             this_frame_set, this_gene_set = index2frame(idx_hxb2_num)
             idx_poly = parse(Int, poly_idx[i_raw])+1         
@@ -399,8 +395,8 @@ function Make_combination_of_mutations_with_genetic_background_w_glycan(csv_inde
                 push!(mutant_nuc, a_mut)
                 push!(mutant_date_found, date_found)
                 for i_fr in 1:3 
-                    @printf("fr:%d gen:%s mut:%s mut_simple:%s mut_AA:%s\n", 
-                    i_fr, this_gene_set_out[i_fr], mutation_tot_string_nuc_set_out[i_fr], mutation_tot_string_nuc_simple_set_out[i_fr], mutation_tot_string_AA_set_out[i_fr]) 
+                    #@printf("fr:%d gen:%s mut:%s mut_simple:%s mut_AA:%s\n", 
+                    #i_fr, this_gene_set_out[i_fr], mutation_tot_string_nuc_set_out[i_fr], mutation_tot_string_nuc_simple_set_out[i_fr], mutation_tot_string_AA_set_out[i_fr]) 
                     push!(mutant_gene[i_fr], this_gene_set_out[i_fr], mutation_tot_string_nuc_simple_set_out[i_fr])
                     push!(mutant_types_set_nuc[i_fr], mutation_tot_string_nuc_set_out[i_fr]) 
                     push!(mutant_types_set_nuc_simple[i_fr], mutation_tot_string_nuc_simple_set_out[i_fr])

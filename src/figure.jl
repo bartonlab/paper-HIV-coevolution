@@ -1111,6 +1111,7 @@ end;
 function get_violin_plot_CH848(csv_raw_CH848, L_fig_tot)
     L_fig = Int(ceil(L_fig_tot*0.25*0.5))
     fontsize_reg = Int(ceil(L_fig_tot/α_gen_sgl * pxl2pt))
+    fontsize_label_reg = Int(ceil(L_fig_tot/α_lbl_sgl * pxl2pt))
     myalpha= 0.3
     my_ms = 6
 
@@ -1283,6 +1284,7 @@ end;
 function get_selection_vs_time_plot_CH848_reduced(csv_raw_CH848, L_fig_tot)
 
     fontsize_reg = Int(ceil(L_fig_tot/α_gen_sgl * pxl2pt))
+    fontsize_label_reg = Int(ceil(L_fig_tot/α_lbl_sgl * pxl2pt))
     color_set = [gen_to_color[x] for x in gene_set_unique];
     gene_set_temp = [gen_to_frame[x] for x in gene_set_unique];
     markershape_set = ["circle" for _ in 1:8];
