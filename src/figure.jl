@@ -299,10 +299,14 @@ function get_violin_plot_CH505(csv_raw_CH505, L_fig_tot)
 end;
 
 # --- This is a case for the x's fitness values --- #
-function get_compare_fitness(fname_key_human_and_RMs, fname_dev, dir_name, 
-        csv_raw_x, csv_raw_y; flag_shuffle = false)
-    
+"""
+    get_compare_fitness(fname_key_human_and_RMs, fname_dev, dir_name, 
+        csv_raw_x, csv_raw_y; flag_include_HIV = false, flag_shuffle = false)
 
+TBW
+"""
+function get_compare_fitness(fname_key_human_and_RMs, fname_dev, dir_name, 
+        csv_raw_x, csv_raw_y; flag_include_HIV = false, flag_shuffle = false)
     # May be this cell should be written in a function because the similar process need to apply for other conditions. 
     n_H_RMs = length(fname_key_human_and_RMs) 
         
@@ -314,102 +318,102 @@ function get_compare_fitness(fname_key_human_and_RMs, fname_dev, dir_name,
     mean_fitness_ind_tot_x_random_set = []
     mean_fitness_ind_tot_y_random_set = []
     bool_BNB_nonBNB = []
-    for k in 2:n_H_RMs # >2
+    for k in 1:n_H_RMs # >2
         key_RM = fname_key_human_and_RMs[k]
-        csv_raw = DataFrame(CSV.File(dir_name * key_RM * "-poly.csv"));
-        date_unique = sort(unique(csv_raw.date))
-        push!(date_unique_set, copy(date_unique))
+            if(occursin(r"^RM\d+$", key_RM) || flag_include_HIV) 
+            csv_raw = DataFrame(CSV.File(dir_name * key_RM * "-poly.csv"));
+            date_unique = sort(unique(csv_raw.date))
+            push!(date_unique_set, copy(date_unique))
 
-        idx = [x ∈ csv_raw.mutation for x in csv_raw.mutation];
-        n_time = length(date_unique)
+            idx = [x ∈ csv_raw.mutation for x in csv_raw.mutation];
+            n_time = length(date_unique)
+            
+            s_in_x = [(x,y) ∈ zip(csv_raw_x.HXB2, csv_raw_x.PRO) ? 
+                    csv_raw_x.s_MPL[ (csv_raw_x.HXB2 .== x) .* (csv_raw_x.PRO .== y) ][1] : 0.0    
+                    for (x,y) in zip(csv_raw.HXB2, csv_raw.PRO)];
+
+            s_in_y = [(x,y) ∈ zip(csv_raw_y.HXB2, csv_raw_y.PRO) ? 
+                    csv_raw_y.s_MPL[ (csv_raw_y.HXB2 .== x) .* (csv_raw_y.PRO .== y) ][1] : 0.0    
+                    for (x,y) in zip(csv_raw.HXB2, csv_raw.PRO)];        
         
-        s_in_x = [(x,y) ∈ zip(csv_raw_x.HXB2, csv_raw_x.PRO) ? 
-                  csv_raw_x.s_MPL[ (csv_raw_x.HXB2 .== x) .* (csv_raw_x.PRO .== y) ][1] : 0.0    
-                  for (x,y) in zip(csv_raw.HXB2, csv_raw.PRO)];
+            # ----------- Start computing variance of sequencies -------------#
+            seq_raw = readdlm(dir_name * key_RM * "-poly.num");
+            time_temp = copy(Int.(seq_raw[:,1]))
+            seq_temp = Int.(copy(seq_raw[:,3:end])) .+ 1;
+            if(flag_shuffle)
+                # ---- sampling while keeping the freuqncy ----# 
+                seq_temp_shuffled = zeros(size(seq_temp))    
+                n_seq_temp = size(seq_temp,1)
+                for i in 1:size(seq_temp,2)
+                    seq_temp_shuffled[:, i] = shuffle(seq_temp[:, i])
+                end
+                seq_temp = Int.(seq_temp_shuffled)
+            end 
 
-        s_in_y = [(x,y) ∈ zip(csv_raw_y.HXB2, csv_raw_y.PRO) ? 
-                  csv_raw_y.s_MPL[ (csv_raw_y.HXB2 .== x) .* (csv_raw_y.PRO .== y) ][1] : 0.0    
-                  for (x,y) in zip(csv_raw.HXB2, csv_raw.PRO)];        
-        
-      
-        # ----------- Start computing variance of sequencies -------------#
-        seq_raw = readdlm(dir_name * key_RM * "-poly.num");
-        time_temp = copy(Int.(seq_raw[:,1]))
-        seq_temp = Int.(copy(seq_raw[:,3:end])) .+ 1;
-        if(flag_shuffle)
-            # ---- sampling while keeping the freuqncy ----# 
-            seq_temp_shuffled = zeros(size(seq_temp))    
-            n_seq_temp = size(seq_temp,1)
-            for i in 1:size(seq_temp,2)
-                seq_temp_shuffled[:, i] = shuffle(seq_temp[:, i])
-            end
-            seq_temp = Int.(seq_temp_shuffled)
-        end 
+            # --- Set selection coefficients --- #
+            L_temp = maximum(csv_raw.polymorphic)
+            s_extended_y = zeros(L_temp, q_AA)
+            s_extended_x = zeros(L_temp, q_AA)
 
-        # --- Set selection coefficients --- #
-        L_temp = maximum(csv_raw.polymorphic)
-        s_extended_y = zeros(L_temp, q_AA)
-        s_extended_x = zeros(L_temp, q_AA)
-
-        for i in 1:length(csv_raw_y.s_MPL)
-            i_hxb2 = csv_raw_y.HXB2[i]
-            pro_in = csv_raw_y.PRO[i]
-            s_temp = csv_raw_y.s_MPL[i]    
-            idx_look = (string.(csv_raw.HXB2) .== string(i_hxb2)) .* (string.(csv_raw.PRO) .== string.(pro_in))
-            if(count(idx_look)>0)
-                if(count(idx_look)==1)
-                    i_poly = csv_raw.polymorphic[idx_look][1]
-                    a = AA2NUM[pro_in]
-                    s_extended_y[i_poly, a] = s_temp
+            for i in 1:length(csv_raw_y.s_MPL)
+                i_hxb2 = csv_raw_y.HXB2[i]
+                pro_in = csv_raw_y.PRO[i]
+                s_temp = csv_raw_y.s_MPL[i]    
+                idx_look = (string.(csv_raw.HXB2) .== string(i_hxb2)) .* (string.(csv_raw.PRO) .== string.(pro_in))
+                if(count(idx_look)>0)
+                    if(count(idx_look)==1)
+                        i_poly = csv_raw.polymorphic[idx_look][1]
+                        a = AA2NUM[pro_in]
+                        s_extended_y[i_poly, a] = s_temp
+                    end
                 end
             end
+
+            for i in 1:length(csv_raw_x.s_MPL)
+                i_hxb2 = csv_raw_x.HXB2[i]
+                pro_in = csv_raw_x.PRO[i]
+                s_temp = csv_raw_x.s_MPL[i]    
+                idx_look = (string.(csv_raw.HXB2) .== string(i_hxb2)) .* (string.(csv_raw.PRO) .== string.(pro_in))
+                if(count(idx_look)>0)
+                    if(count(idx_look)==1)
+                        i_poly = csv_raw.polymorphic[idx_look][1]
+                        a = AA2NUM[pro_in]
+                        s_extended_x[i_poly, a] = s_temp
+                    end
+                end
+            end
+
+            # --- Obtain fitness values --- #
+            f_var_set_x=[]; f_var_set_y=[];
+            f_mean_set_x=[]; f_mean_set_y=[];
+            for i_t in 1:length(date_unique)
+                idx_t = date_unique[i_t] .== time_temp
+                n_t = count(idx_t)
+                ensemble_t = copy(seq_temp[idx_t, :])
+                f_set_x_temp = []; f_set_y_temp = []
+                for i_temp in 1:n_t
+                    x_t = copy(ensemble_t[i_temp, :])
+                    f_y_temp = sum([s_extended_y[i, x_t[i]] for i in 1:L_temp])
+                    f_x_temp = sum([s_extended_x[i, x_t[i]] for i in 1:L_temp])
+                    push!(f_set_y_temp, f_y_temp)
+                    push!(f_set_x_temp, f_x_temp)
+                    if(key_RM ∈ fname_dev)
+                        push!(bool_BNB_nonBNB, true) else
+                        push!(bool_BNB_nonBNB, false)
+                    end
+                end
+                f_var_x = std(f_set_x_temp); f_mean_x = mean(f_set_x_temp)
+                f_var_y = std(f_set_y_temp); f_mean_y = mean(f_set_y_temp)
+                push!(f_var_set_x, f_var_x); push!(f_mean_set_x, f_mean_x)
+                push!(f_var_set_y, f_var_y); push!(f_mean_set_y, f_mean_y)            
+                push!(fitness_ind_tot_y_random_set, 100*copy(float.(f_set_y_temp)))
+                push!(fitness_ind_tot_x_random_set, 100*copy(float.(f_set_x_temp)))
+            end;    
+            push!(errorbar_tot_x_set, 100*copy(f_var_set_x))
+            push!(errorbar_tot_y_set, 100*copy(f_var_set_y))
+            push!(mean_fitness_ind_tot_x_random_set, 100*copy(float.(f_mean_set_x)))
+            push!(mean_fitness_ind_tot_y_random_set, 100*copy(float.(f_mean_set_y)))
         end
-
-        for i in 1:length(csv_raw_x.s_MPL)
-            i_hxb2 = csv_raw_x.HXB2[i]
-            pro_in = csv_raw_x.PRO[i]
-            s_temp = csv_raw_x.s_MPL[i]    
-            idx_look = (string.(csv_raw.HXB2) .== string(i_hxb2)) .* (string.(csv_raw.PRO) .== string.(pro_in))
-            if(count(idx_look)>0)
-                if(count(idx_look)==1)
-                    i_poly = csv_raw.polymorphic[idx_look][1]
-                    a = AA2NUM[pro_in]
-                    s_extended_x[i_poly, a] = s_temp
-                end
-            end
-        end
-
-        # --- Obtain fitness values --- #
-        f_var_set_x=[]; f_var_set_y=[];
-        f_mean_set_x=[]; f_mean_set_y=[];
-        for i_t in 1:length(date_unique)
-            idx_t = date_unique[i_t] .== time_temp
-            n_t = count(idx_t)
-            ensemble_t = copy(seq_temp[idx_t, :])
-            f_set_x_temp = []; f_set_y_temp = []
-            for i_temp in 1:n_t
-                x_t = copy(ensemble_t[i_temp, :])
-                f_y_temp = sum([s_extended_y[i, x_t[i]] for i in 1:L_temp])
-                f_x_temp = sum([s_extended_x[i, x_t[i]] for i in 1:L_temp])
-                push!(f_set_y_temp, f_y_temp)
-                push!(f_set_x_temp, f_x_temp)
-                if(key_RM ∈ fname_dev)
-                    push!(bool_BNB_nonBNB, true) else
-                    push!(bool_BNB_nonBNB, false)
-                end
-            end
-            f_var_x = std(f_set_x_temp); f_mean_x = mean(f_set_x_temp)
-            f_var_y = std(f_set_y_temp); f_mean_y = mean(f_set_y_temp)
-            push!(f_var_set_x, f_var_x); push!(f_mean_set_x, f_mean_x)
-            push!(f_var_set_y, f_var_y); push!(f_mean_set_y, f_mean_y)            
-            push!(fitness_ind_tot_y_random_set, 100*copy(float.(f_set_y_temp)))
-            push!(fitness_ind_tot_x_random_set, 100*copy(float.(f_set_x_temp)))
-        end;    
-        push!(errorbar_tot_x_set, 100*copy(f_var_set_x))
-        push!(errorbar_tot_y_set, 100*copy(f_var_set_y))
-        push!(mean_fitness_ind_tot_x_random_set, 100*copy(float.(f_mean_set_x)))
-        push!(mean_fitness_ind_tot_y_random_set, 100*copy(float.(f_mean_set_y)))
-
     end
     
     # --- Make it a single long vector ---- #
@@ -1387,6 +1391,8 @@ function get_selection_vs_time_plot_CH848_reduced(csv_raw_CH848, L_fig_tot)
 end;
 
 function get_violin_plot_CH848_reduced(csv_raw_CH848, L_fig_tot)
+    fontsize_reg = Int(ceil(L_fig_tot/α_gen_sgl * pxl2pt))
+    fontsize_label_reg = Int(ceil(L_fig_tot/α_lbl_sgl * pxl2pt))
     s_set = []
     for i in 1:length(gene_set_unique)
         gen_key = gene_set_unique[i]
