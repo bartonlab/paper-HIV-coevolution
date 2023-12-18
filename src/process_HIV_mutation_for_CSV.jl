@@ -1,4 +1,11 @@
-
+idx_HXB2_V1 = collect(6615:6693)
+idx_HXB2_V2 = collect(6694:6761)
+idx_HXB2_V3 = collect(7047:7124)
+idx_HXB2_V4 = collect(7377:7479)
+idx_HXB2_V5 = collect(7622:7708)
+idx_HXB2_LD = collect(6901:7002)
+idx_HXB2_MPER = collect(8560:8714)
+idx_HXB2_CD4BS = collect(6783:6858)
 
 struct HXB2
     idx_nuc::Union{Number, Missing, Nothing}
@@ -518,7 +525,6 @@ function extract_parts(s)
         for _ in 1:3 push!(results, "NA" ) end  # No digit found, add false for all parts
         
     end
-
     return results
 end;
 
@@ -1270,19 +1276,23 @@ function check_N_linked_glycan(aa_set_temp)
     return flag_N_linked_glycan
 end;       
 
-# vec_in should be boolean vector 
-function get_x_fold(vec_in, idx_significant)
-    
-    α_selected = count(idx_significant) / length(vec_in) # number of selected elements / total elements 
-    n_tot = count(vec_in)
-    n_subjected = count(vec_in[idx_significant])
-    n_estimated = n_tot * α_selected # length(vec_in) * (n_tot /length(vec_in)) * α
+""" get_x_fold(vec_in, idx_subjected)
+"""
+function get_x_fold(vec_in, idx_subjected)
+    n_null = count(idx_subjected)
+    α_null = n_null / length(vec_in) #  
+    #
+    n_subjected = count(vec_in[idx_subjected])
+    n_subjected_tot = count(vec_in)
+    α_subjected = 0
+    if(n_subjected_tot > 0)
+        α_subjected = n_subjected / n_subjected_tot
+    end 
     x_fold = 0
-    if(n_estimated > 0)
-        x_fold = n_subjected / n_estimated
+    if(α_null > 0)
+        x_fold = α_subjected / α_null
     end
-    
-    return (n_subjected, n_estimated, n_tot, x_fold)
+    return (n_subjected, n_null, n_subjected_tot, x_fold)
 end;
 
 
