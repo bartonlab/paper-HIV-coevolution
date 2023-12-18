@@ -333,9 +333,11 @@ function get_possible_glycan(i_mut, i_raw, date_mut_set, NUC, a_MT_set, n_poly_i
                         end
                     end
                 end
+            """
             if(n_plus_glycan[frame_temp]>0 || n_minus_glycan[frame_temp]>0)
                 @printf("Fr.%d: +N-glycan: %d, -N-glycan: %d N-glycan-shift: %d\n", frame_temp, n_plus_glycan[frame_temp], n_minus_glycan[frame_temp], n_glycan_shift[frame_temp])
             end
+            """
             end
         end # end for the if of i_raw range     
     #end
@@ -603,8 +605,10 @@ function get_possible_mutation_AA_and_NUC(i_mut, i_raw, idx_hxb2, date_mut_set, 
             [push!(codon_set_tot_after, x) for x in unique([join(data_after_mut_extend[n, codon_location]) for n in 1:n_after])]
             codon_set_tot_before = copy(unique(codon_set_tot_before))
             codon_set_tot_after = copy(unique(codon_set_tot_after))
+            """
             @printf("cdn_bfr:%s\n", join(codon_set_tot_before, ","))
             @printf("cdn_afr:%s\n", join(codon_set_tot_after, ","))
+            """
             AA_set_after = [haskey(NUC2AA,x) ? NUC2AA[x] : "-" for x in codon_set_tot_after]
             AA_set_before = [haskey(NUC2AA,x) ? NUC2AA[x] : "-" for x in codon_set_tot_before]
             #@printf("fr:%d AA_before:%s AA_after:%s \n", i_fr, join(AA_set_before, "|"), join(AA_set_after, "|"))
@@ -645,14 +649,14 @@ function get_possible_mutation_AA_and_NUC(i_mut, i_raw, idx_hxb2, date_mut_set, 
                     end
                 end
             end
-
+            """
             @printf("Detected Codon: before>%s & after>%s\n", join(codon_set_tot_before, "/"), join(codon_set_tot_after, "/"))
             @printf("Detected AA: before>%s & after>%s\n", join(AA_set_before, "/"), join(AA_set_after, "/"))            
             @printf("Possible Transition (row: before, col: after): \n")
             print_matrix(table_paired)
             @printf("Possible Transition (After): \n")
             print_matrix(table_paired_after)
-
+            """
             # ------------------------------- Adjoint paired/unpaired mutations ----------------------------------#
             mutation_tot_string_AA = ""
             mutation_tot_string_nuc = ""
@@ -725,8 +729,10 @@ function get_possible_mutation_AA_and_NUC(i_mut, i_raw, idx_hxb2, date_mut_set, 
             mutation_tot_string_nuc_simple_set_out[frame_temp] = mutation_tot_string_nuc_simple
             mutation_tot_string_AA_set_out[frame_temp] = mutation_tot_string_AA
 
+            """
             @printf("fr:%d gene:%s poly_idx:%d HXB2_idx:%s nuc:%s detected:%dd\n", frame_temp, this_gene_set_out[frame_temp], i_raw, idx_hxb2, a_mut, date_found)
             @printf("GENE:%s AA:%s NUC:%s\n", mutation_tot_string_nuc_simple, mutation_tot_string_AA, mutation_tot_string_nuc)
+            """
             end # end of frame.
 
         end
