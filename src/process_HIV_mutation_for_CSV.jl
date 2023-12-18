@@ -6,6 +6,24 @@ idx_HXB2_V5 = collect(7622:7708)
 idx_HXB2_LD = collect(6901:7002)
 idx_HXB2_MPER = collect(8560:8714)
 idx_HXB2_CD4BS = collect(6783:6858)
+# --------------------------------- CH848 Specific --------------------------------- #
+idx_HXB2_half = collect(2000:9719)
+idx_HXB2_ENV = collect(6225:8795)
+idx_HXB2_POL = collect(2085:5096)
+idx_HXB2_VIF = collect(5041:5619)
+idx_HXB2_NEF = collect(8797:9417)
+idx_HXB2_VPU = collect(6062:6310)
+idx_HXB2_VPR = collect(5559:5850)
+idx_HXB2_REV1 = collect(5970:6045)
+idx_HXB2_REV2 = collect(8379:8653)
+idx_HXB2_TAT1 = collect(5831:6045)
+idx_HXB2_TAT2 = collect(8379:8469);
+# ------------------------------- Glycan Related Analysis ------------------------------- #
+notX = ["P", "*", "?", "-"]
+SorT = ["S", "T"]
+
+
+
 
 struct HXB2
     idx_nuc::Union{Number, Missing, Nothing}
@@ -196,11 +214,8 @@ function get_possible_glycan(i_mut, i_raw, date_mut_set, NUC, a_MT_set, n_poly_i
 #    idx_hxb2 = parse(Int, csv_index_and_TF.HXB2[i_raw])
     idx_hxb2 = parse(Int, match(r"(\d+)", csv_index_and_TF.HXB2[i_raw]).match)
     
-    notX = ["P", "*", "?", "-"]
-    SorT = ["S", "T"]
     n_plus_glycan, n_minus_glycan, n_glycan_shift = zeros(Int,3), zeros(Int,3), zeros(Int,3)
     #if( 6225<= idx_hxb2 <= 8795)
-
         date_mut = date_mut_set[i_mut]
         data_after_mut = copy(data_num[collected_time .== date_mut, :])
         # Note, the ensemble should have only having mutation at idx_poly
@@ -268,87 +283,76 @@ function get_possible_glycan(i_mut, i_raw, date_mut_set, NUC, a_MT_set, n_poly_i
                     aa_set_before = unique(aa_set_before)
                     aa_set_after = unique(aa_set_after)
 
-                    idx_mut = 3 # The codon windows have a mutation at the middle.
-
                     for x in aa_set_after
                         x_sp = split(x, "")
                         for y in aa_set_before
                             y_sp = split(y, "")
-                            n_glycan_shift_plus_temp, n_glycan_shift_minus_temp = false, false
-                            #------------- Detect + N-linked Glycan ----------  
-                            # !N,!X,S/T -> N,!X,S/T 
-                            if(x_sp[idx_mut] == "N" && y_sp[idx_mut] != "N")
-        #                        if(y_sp[idx_mut+1] ∉ notX && y_sp[idx_mut+2] ∈ SorT)
-                                if((y_sp[idx_mut+1] ∉ notX && y_sp[idx_mut+2] ∈ SorT) || 
-                                   (x_sp[idx_mut+1] ∉ notX && x_sp[idx_mut+2] ∈ SorT)) 
-                                    n_plus_glycan[frame_temp] += 1
-                                    n_glycan_shift_plus_temp = true
-                                end
-                            end
-                            # N,X,S/T -> N,!X,S/T
-                            if(x_sp[idx_mut] ∉ notX && y_sp[idx_mut] ∈ notX)
-        #                        if(y_sp[idx_mut-1] == "N" && y_sp[idx_mut+1] ∈ SorT)
-                                if( (y_sp[idx_mut-1] == "N" && y_sp[idx_mut+1] ∈ SorT) || 
-                                    (x_sp[idx_mut-1] == "N" && x_sp[idx_mut+1] ∈ SorT) )
-                                    n_plus_glycan[frame_temp] += 1
-                                    n_glycan_shift_plus_temp = true
-                                end
-                            end
-
-                            # N,!X,!S/T -> N,!X,S/T 
-                            if(x_sp[idx_mut] ∈ SorT && y_sp[idx_mut] ∉ SorT )
-        #                        if(y_sp[idx_mut-2] == "N" && y_sp[idx_mut-1] ∉ notX)
-                                if( (y_sp[idx_mut-2] == "N" && y_sp[idx_mut-1] ∉ notX) ||
-                                    (x_sp[idx_mut-2] == "N" && x_sp[idx_mut-1] ∉ notX))                            
-                                    n_plus_glycan[frame_temp] += 1
-                                    n_glycan_shift_plus_temp = true
-                                end
-                            end
-
-                            #------------- Detect - N-linked Glycan ----------  
-                            # !N,!X,S/T -> N,!X,S/T 
-                            if(y_sp[idx_mut] == "N" && x_sp[idx_mut] != "N")
-        #                        if(y_sp[idx_mut+1] ∉ notX && y_sp[idx_mut+2] ∈ SorT)
-                                if((y_sp[idx_mut+1] ∉ notX && y_sp[idx_mut+2] ∈ SorT)||
-                                   (x_sp[idx_mut+1] ∉ notX && x_sp[idx_mut+2] ∈ SorT))
-                                    n_minus_glycan[frame_temp] += 1
-                                    n_glycan_shift_minus_temp = true
-                                end
-                            end
-                            # N,X,S/T -> N,!X,S/T
-                            if(y_sp[idx_mut] ∉ notX && x_sp[idx_mut] ∈ notX)
-        #                        if(y_sp[idx_mut-1] == "N" && y_sp[idx_mut+1] ∈ SorT)
-                                if( (y_sp[idx_mut-1] == "N" && y_sp[idx_mut+1] ∈ SorT)||
-                                    (x_sp[idx_mut-1] == "N" && x_sp[idx_mut+1] ∈ SorT))
-                                    n_minus_glycan[frame_temp] += 1
-                                    n_glycan_shift_minus_temp = true
-                                end
-                            end
-
-                            # N,!X,!S/T -> N,!X,S/T 
-                            if(y_sp[idx_mut] ∈ SorT && x_sp[idx_mut] ∉ SorT )
-        #                        if(y_sp[idx_mut-2] == "N" && y_sp[idx_mut-1] ∉ notX)
-                                if( (y_sp[idx_mut-2] == "N" && y_sp[idx_mut-1] ∉ notX)||
-                                    (x_sp[idx_mut-2] == "N" && x_sp[idx_mut-1] ∉ notX))
-                                    n_minus_glycan[frame_temp] += 1
-                                    n_glycan_shift_minus_temp = true
-                                end
-                            end
-                            if(n_glycan_shift_minus_temp * n_glycan_shift_plus_temp)
-                                n_glycan_shift[frame_temp] += 1
-                            end
+                            (n_glycan_shift_plus_temp, n_glycan_shift_minus_temp) = check_glycan_shield_hole_shift(x_sp, y_sp)
+                            if(n_glycan_shift_plus_temp) n_plus_glycan[frame_temp] += 1 end
+                            if(n_glycan_shift_minus_temp) n_minus_glycan[frame_temp] += 1 end
+                            if(n_glycan_shift_minus_temp * n_glycan_shift_plus_temp) n_glycan_shift[frame_temp] += 1 end
                         end
                     end
                 end
-            """
-            if(n_plus_glycan[frame_temp]>0 || n_minus_glycan[frame_temp]>0)
-                @printf("Fr.%d: +N-glycan: %d, -N-glycan: %d N-glycan-shift: %d\n", frame_temp, n_plus_glycan[frame_temp], n_minus_glycan[frame_temp], n_glycan_shift[frame_temp])
-            end
-            """
             end
         end # end for the if of i_raw range     
     #end
     return (n_plus_glycan, n_minus_glycan, n_glycan_shift)
+end;
+
+""" check_glycan_shield_hole_shift(x_sp, y_sp)
+"""
+function check_glycan_shield_hole_shift(x_sp, y_sp)
+    idx_mut = 3 # The codon windows have a mutation at the middle.
+    n_glycan_shift_plus_temp, n_glycan_shift_minus_temp = false, false
+    #------------- Detect + N-linked Glycan ----------  
+    #Here y and x are before and after mutation, respectively.
+    # !N,!X,S/T -> N,!X,S/T 
+    if(x_sp[idx_mut] == "N" && y_sp[idx_mut] != "N")
+        if((y_sp[idx_mut+1] ∉ notX && y_sp[idx_mut+2] ∈ SorT) || 
+           (x_sp[idx_mut+1] ∉ notX && x_sp[idx_mut+2] ∈ SorT)) 
+            n_glycan_shift_plus_temp = true
+        end
+    end
+    # N,X,S/T -> N,!X,S/T
+    if(x_sp[idx_mut] ∉ notX && y_sp[idx_mut] ∈ notX)
+        if( (y_sp[idx_mut-1] == "N" && y_sp[idx_mut+1] ∈ SorT) || 
+            (x_sp[idx_mut-1] == "N" && x_sp[idx_mut+1] ∈ SorT) )
+            n_glycan_shift_plus_temp = true
+        end
+    end
+
+    # N,!X,!S/T -> N,!X,S/T 
+    if(x_sp[idx_mut] ∈ SorT && y_sp[idx_mut] ∉ SorT )
+        if( (y_sp[idx_mut-2] == "N" && y_sp[idx_mut-1] ∉ notX) ||
+            (x_sp[idx_mut-2] == "N" && x_sp[idx_mut-1] ∉ notX))                            
+            n_glycan_shift_plus_temp = true
+        end
+    end
+
+    #------------- Detect - N-linked Glycan ----------  
+    # !N,!X,S/T -> N,!X,S/T 
+    if(y_sp[idx_mut] == "N" && x_sp[idx_mut] != "N")
+        if((y_sp[idx_mut+1] ∉ notX && y_sp[idx_mut+2] ∈ SorT)||
+           (x_sp[idx_mut+1] ∉ notX && x_sp[idx_mut+2] ∈ SorT))
+            n_glycan_shift_minus_temp = true
+        end
+    end
+    # N,X,S/T -> N,!X,S/T
+    if(y_sp[idx_mut] ∉ notX && x_sp[idx_mut] ∈ notX)
+        if( (y_sp[idx_mut-1] == "N" && y_sp[idx_mut+1] ∈ SorT)||
+            (x_sp[idx_mut-1] == "N" && x_sp[idx_mut+1] ∈ SorT))
+            n_glycan_shift_minus_temp = true
+        end
+    end
+    # N,!X,!S/T -> N,!X,S/T 
+    if(y_sp[idx_mut] ∈ SorT && x_sp[idx_mut] ∉ SorT )
+        if( (y_sp[idx_mut-2] == "N" && y_sp[idx_mut-1] ∉ notX)||
+            (x_sp[idx_mut-2] == "N" && x_sp[idx_mut-1] ∉ notX))
+            n_glycan_shift_minus_temp = true
+        end
+    end
+    return (n_glycan_shift_plus_temp, n_glycan_shift_minus_temp)
 end;
 
 
@@ -507,6 +511,61 @@ function get_TF_AA(csv_index_and_TF, mutant_hxb2)
         end
     end
     return mutant_types_set_TF_AA_out
+end;
+
+""" By giving any sequences, gives possible number of glycan holdes, shields and shifts
+        get_glycan_plus_minus_shift_statistics(seq_TF)
+"""
+function get_glycan_plus_minus_shift_statistics(seq_TF)
+    n_non_syn, n_N_add, n_N_rem, n_N_sht = 0, 0, 0, 0
+    this_frame_set = [1,2,3]
+    i_fr = 3
+    frame_temp = this_frame_set[i_fr];
+    for i_raw in 1:length(seq_TF)
+        codon_location_set = [] # that should contains the 5 types of sites. 
+        push!(codon_location_set, )
+        a_TF = seq_TF[i_raw]
+        # Consider only non_gap sites
+        if(a_TF != "-")
+            codon_location = collect(1:3)
+            if(i_raw%3 == (frame_temp+1)%3) codon_location = i_raw .+ collect( 0:1:2) end
+            if(i_raw%3 == (frame_temp+2)%3) codon_location = i_raw .+ collect(-1:1:1) end
+            if(i_raw%3 == frame_temp%3) codon_location = i_raw .+ collect(-2:1:0) end
+
+            for k in -2:1:2 push!(codon_location_set, codon_location .+ 3*k) end
+            aa_TF = []
+            for k in 1:5
+                if(minimum(codon_location_set[k])>0 && maximum((codon_location_set[k]))<=length(seq_TF))
+                    x = join(seq_TF[codon_location_set[k]])
+                    y = haskey(NUC2AA, x) ? NUC2AA[x] : "-"
+                    push!(aa_TF, y)
+                end
+            end
+
+            nuc_TF = seq_TF[i_raw]
+            for nuc_MT in NUC 
+                if(nuc_MT != nuc_TF)
+                    seq_MT = copy(seq_TF); seq_MT[i_raw] = nuc_MT; aa_MT = []
+                    for k in 1:5
+                        if(minimum(codon_location_set[k])>0 && maximum((codon_location_set[k]))<=length(seq_MT))
+                            x = join(seq_MT[codon_location_set[k]])
+                            y = haskey(NUC2AA, x) ? NUC2AA[x] : "-"
+                            push!(aa_MT, y)
+                        end
+                    end
+                    #@printf("MT:%s, TF:%s\n", join(aa_MT), join(aa_TF))
+                    if(join(aa_MT) != join(aa_TF))
+                        n_non_syn += 1    
+                        (bool_N_plus, bool_N_minus) = check_glycan_shield_hole_shift(aa_MT, aa_TF);
+                        if(bool_N_plus) n_N_add += 1 end
+                        if(bool_N_minus) n_N_rem += 1 end
+                        if(bool_N_plus * bool_N_minus) n_N_sht += 1 end
+                    end
+                end 
+            end
+        end
+    end
+    return (n_non_syn, n_N_add, n_N_rem, n_N_sht)
 end;
 
 """ This function split the mutaion consiting XNY, where X and Y are amino acid letters and N is a digit to [X, N, Y]
@@ -1259,9 +1318,6 @@ function get_jointed_RMs_for_CSV_SHIV848(csv_selection, csv_index_and_TF, fname_
     bool_common_mut_SHIV_CH848, reversion_true_false) 
 end;
 
-
-
-
 function check_N_linked_glycan(aa_set_temp)
     notX = ["P", "*", "?", "-"]
     SorT = ["S", "T"]
@@ -1276,25 +1332,27 @@ function check_N_linked_glycan(aa_set_temp)
     return flag_N_linked_glycan
 end;       
 
-""" get_x_fold(vec_in, idx_subjected)
+""" get_x_fold(vec_in, idx_sel, csv_index_and_TF, idx_type; reversion=false)
 """
-function get_x_fold(vec_in, idx_subjected)
-    n_null = count(idx_subjected)
-    α_null = n_null / length(vec_in) #  
-    #
-    n_subjected = count(vec_in[idx_subjected])
-    n_subjected_tot = count(vec_in)
-    α_subjected = 0
-    if(n_subjected_tot > 0)
-        α_subjected = n_subjected / n_subjected_tot
-    end 
-    x_fold = 0
-    if(α_null > 0)
-        x_fold = α_subjected / α_null
+function get_x_fold(vec_in, idx_sel, csv_index_and_TF, idx_type; n_null=0, N_null=0)
+    # Franction for null or hypothetical mutations
+    if(n_null==0)
+        n_null = count( [x ∈ idx_type for x in extract_integer.(csv_index_and_TF.HXB2[csv_index_and_TF.TF .!= "-", 1]) ] );
     end
-    return (n_subjected, n_null, n_subjected_tot, x_fold)
+    if(N_null==0)
+        N_null = length(csv_index_and_TF[csv_index_and_TF.TF .!= "-", 1])
+    end
+    α_null = n_null / N_null
+    
+    N_sel = count(vec_in)
+    n_sel = count(vec_in[idx_sel])
+    α_sel, x_fold = 0, 0
+    if(N_sel > 0) α_sel = n_sel / N_sel end 
+    if(α_null > 0) x_fold = α_sel / α_null end
+    
+    @printf("N_sel:%d n_sel:%d N_null:%d n_null:%d\n", N_sel, n_sel, N_null, n_null)
+    return (n_sel, n_null, N_sel, x_fold)
 end;
-
 
 function filter_nuc_mut(mutant_types_set_nuc_simple)
     mutant_nuc_simple_filtered = []    
