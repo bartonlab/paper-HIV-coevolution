@@ -1352,7 +1352,7 @@ function get_x_fold(vec_in, idx_sel, csv_index_and_TF, idx_type; n_null=0, N_nul
     if(N_sel > 0) α_sel = n_sel / N_sel end 
     if(α_null > 0) x_fold = α_sel / α_null end
     
-    @printf("N_sel:%d\tn_sel:%d\tN_null:%d\tn_null:%d", N_sel, n_sel, N_null, n_null)
+    #@printf("N_sel:%d\tn_sel:%d\tN_null:%d\tn_null:%d", N_sel, n_sel, N_null, n_null)
     return (n_sel, n_null, N_sel, x_fold)
 end;
 
@@ -1365,7 +1365,7 @@ function get_x_fold(n_sel, N_sel, n_null, N_null)
     α_sel, x_fold = 0, 0
     if(N_sel > 0) α_sel = n_sel / N_sel end 
     if(α_null > 0) x_fold = α_sel / α_null end
-    @printf("N_sel:%d\tn_sel:%d\tN_null:%d\tn_null:%d", N_sel, n_sel, N_null, n_null)
+    #@printf("N_sel:%d\tn_sel:%d\tN_null:%d\tn_null:%d", N_sel, n_sel, N_null, n_null)
     return (n_sel, n_null, N_sel, x_fold)
 end;
 
