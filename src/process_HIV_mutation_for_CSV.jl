@@ -22,9 +22,6 @@ idx_HXB2_TAT2 = collect(8379:8469);
 notX = ["P", "*", "?", "-"]
 SorT = ["S", "T"]
 
-
-
-
 struct HXB2
     idx_nuc::Union{Number, Missing, Nothing}
     idx_AA::Union{String, Missing, Nothing}
@@ -472,23 +469,23 @@ function get_TF_AA(csv_index_and_TF, mutant_hxb2)
     for i_raw in 1:n_poly_idx_max
         if(poly_idx[i_raw] != "NA")
             # Find when first mutation occared 
-            idx_hxb2 = csv_index_and_TF.HXB2[i_raw]
+            idx_hxb2 = extract_integer(csv_index_and_TF.HXB2[i_raw]) 
             this_frame_set, this_gene_set = index2frame(idx_hxb2)
-            a_WT = csv_index_and_TF.TF[i_raw]
+            #a_WT = csv_index_and_TF.TF[i_raw]
             for i_fr in 1:3
-                frame_temp = this_frame_set[i_fr];
-                num_nuc, i_AA_set, gene_check = map_numNUC_to_numAA(idx_hxb2, frame_temp)
-                i_AA = i_AA_set[frame_temp]
-                #@assert(this_gene_set[i_fr] == gene_check[frame_temp]) ;# this should be same
-
-                codon_location = collect(1:3) # this index should extend 1 to to 2652
-                if(i_raw%3 == (frame_temp+1)%3) codon_location = i_raw .+ collect( 0:1:2) end
-                if(i_raw%3 == (frame_temp+2)%3) codon_location = i_raw .+ collect(-1:1:1) end
-                if(i_raw%3 == frame_temp%3) codon_location = i_raw .+ collect(-2:1:0) end
-                if(minimum(codon_location)>0 && maximum(codon_location)<=length(seq_TF))
-                    x_TF = join(seq_TF[codon_location])
-                    AA_TF = haskey(NUC2AA, x_TF) ? NUC2AA[x_TF] : "-" 
-                    push!(mutant_types_set_TF_AA[i_fr], AA_TF)
+               if(i_fr ∈ this_frame_set)                    
+                    #frame_temp = this_frame_set[i_fr];
+                    codon_location = collect(1:3) # this index should extend 1 to to 2652
+                    if(i_raw%3 == (i_fr+1)%3) codon_location = i_raw .+ collect( 0:1:2) end
+                    if(i_raw%3 == (i_fr+2)%3) codon_location = i_raw .+ collect(-1:1:1) end
+                    if(i_raw%3 == i_fr%3) codon_location = i_raw .+ collect(-2:1:0) end
+                    if(minimum(codon_location)>0 && maximum(codon_location)<=length(seq_TF))
+                        x_TF = join(seq_TF[codon_location])
+                        AA_TF = haskey(NUC2AA, x_TF) ? NUC2AA[x_TF] : "-" 
+                        push!(mutant_types_set_TF_AA[i_fr], AA_TF)
+                    else
+                        push!(mutant_types_set_TF_AA[i_fr], "NA")
+                    end
                 else
                     push!(mutant_types_set_TF_AA[i_fr], "NA")
                 end
@@ -517,13 +514,9 @@ end;
 """
 function get_glycan_plus_minus_shift_statistics(csv_index_and_TF)
     n_non_syn, n_N_add, n_N_rem, n_N_sht = 0, 0, 0, 0
-    i_fr = 3
+    frame_temp = 3 # consider only 3rd frame where glycan appeares.
     seq_TF = copy(csv_index_and_TF.TF)
     for i_raw in 1:length(seq_TF)
-        idx_hxb2 = extract_integer(csv_index_and_TF.HXB2[i_raw])
-        #this_frame_set, this_gene_set = index2frame(idx_hxb2)
-        #frame_temp = this_frame_set[end];
-        frame_temp = 3
         codon_location_set = [] # that should contains the 5 types of sites. 
         push!(codon_location_set, )
         a_TF = seq_TF[i_raw]
@@ -534,36 +527,40 @@ function get_glycan_plus_minus_shift_statistics(csv_index_and_TF)
             if(i_raw%3 == (frame_temp+2)%3) codon_location = i_raw .+ collect(-1:1:1) end
             if(i_raw%3 == frame_temp%3) codon_location = i_raw .+ collect(-2:1:0) end
 
-            for k in -2:1:2 push!(codon_location_set, codon_location .+ 3*k) end
-            aa_TF = []
-            for k in 1:5
-                if(minimum(codon_location_set[k])>0 && maximum((codon_location_set[k]))<=length(seq_TF))
-                    x = join(seq_TF[codon_location_set[k]])
-                    y = haskey(NUC2AA, x) ? NUC2AA[x] : "-"
-                    push!(aa_TF, y)
+            if(0 < codon_location[1] && codon_location[end] <= length(seq_TF)) 
+                for k in -2:1:2 push!(codon_location_set, codon_location .+ 3*k) end
+                aa_TF = []
+                for k in 1:5
+                    if(minimum(codon_location_set[k])>0 && maximum((codon_location_set[k]))<=length(seq_TF))
+                        x = join(seq_TF[codon_location_set[k]])
+                        y = haskey(NUC2AA, x) ? NUC2AA[x] : "-"
+                        push!(aa_TF, y)
+                    end
                 end
-            end
 
-            nuc_TF = seq_TF[i_raw]
-            for nuc_MT in NUC 
-                if(nuc_MT != nuc_TF)
-                    seq_MT = copy(seq_TF); seq_MT[i_raw] = nuc_MT; aa_MT = []
-                    for k in 1:5
-                        if(minimum(codon_location_set[k])>0 && maximum((codon_location_set[k]))<=length(seq_MT))
-                            x = join(seq_MT[codon_location_set[k]])
-                            y = haskey(NUC2AA, x) ? NUC2AA[x] : "-"
-                            push!(aa_MT, y)
+                nuc_TF = seq_TF[i_raw]
+                for nuc_MT in NUC 
+                    if(nuc_MT != nuc_TF)
+                        seq_MT = copy(seq_TF); seq_MT[i_raw] = nuc_MT; aa_MT = []
+                        for k in 1:5
+                            if(minimum(codon_location_set[k])>0 && maximum((codon_location_set[k]))<=length(seq_MT))
+                                x = join(seq_MT[codon_location_set[k]])
+                                y = haskey(NUC2AA, x) ? NUC2AA[x] : "-"
+                                push!(aa_MT, y)
+                            end
                         end
-                    end
-                    #@printf("MT:%s, TF:%s\n", join(aa_MT), join(aa_TF))
-                    if(join(aa_MT) != join(aa_TF))
-                        n_non_syn += 1    
-                        (bool_N_plus, bool_N_minus) = check_glycan_shield_hole_shift(aa_MT, aa_TF);
-                        if(bool_N_plus) n_N_add += 1 end
-                        if(bool_N_minus) n_N_rem += 1 end
-                        if(bool_N_plus * bool_N_minus) n_N_sht += 1 end
-                    end
-                end 
+                        #@printf("MT:%s, TF:%s\n", join(aa_MT), join(aa_TF))
+                        if(length(aa_MT) == length(aa_TF) == 5) # check if the length of aa is 5 to get rid of the edge effect.
+                            if(join(aa_MT) != join(aa_TF))
+                                n_non_syn += 1    
+                                (bool_N_plus, bool_N_minus) = check_glycan_shield_hole_shift(aa_MT, aa_TF);
+                                if(bool_N_plus) n_N_add += 1 end
+                                if(bool_N_minus) n_N_rem += 1 end
+                                if(bool_N_plus * bool_N_minus) n_N_sht += 1 end
+                            end
+                        end
+                    end 
+                end
             end
         end
     end
@@ -598,7 +595,6 @@ function replacing_redundant_AA_by_TF(mutation_in, mutation_TF)
     output_letters = []
     for n in 1:length(strings)
         x = strings[n]
-
         if(x != "" && mutation_TF[n]!="NA")
             extracted_x = extract_parts(x)
             # check are there multiple letters at the left 
@@ -667,7 +663,7 @@ function get_possible_mutation_AA_and_NUC(i_mut, i_raw, idx_hxb2, date_mut_set, 
         if(i_raw%3 == (frame_temp+2)%3) codon_location = i_raw .+ collect(-1:1:1) end
         if(i_raw%3 == frame_temp%3) codon_location = i_raw .+ collect(-2:1:0) end
         
-        if(minimum(codon_location)>0 && maximum(codon_location)<=length(seq_TF))
+        if(0 < codon_location[1] && codon_location[end] <= length(seq_TF)) 
             [push!(codon_set_tot_before, x) for x in unique([join(data_before_mut_extend[n, codon_location]) for n in 1:n_before])]
             [push!(codon_set_tot_after, x) for x in unique([join(data_after_mut_extend[n, codon_location]) for n in 1:n_after])]
             codon_set_tot_before = copy(unique(codon_set_tot_before))
@@ -1386,18 +1382,22 @@ function get_num_of_nonsyn(csv_index_and_TF, idx_type)
                     seq_MT = copy(seq_TF); seq_MT[i_raw] = nuc_MT        
                     flag_nsyn, flag_nsyn_restricted = false, false
                     for i_fr in 1:3
-                        codon_location = collect(1:3)
-                        if(i_raw%3 == (frame_temp+1)%3) codon_location = i_raw .+ collect( 0:1:2) end
-                        if(i_raw%3 == (frame_temp+2)%3) codon_location = i_raw .+ collect(-1:1:1) end
-                        if(i_raw%3 == frame_temp%3) codon_location = i_raw .+ collect(-2:1:0) end
-                        codon_TF = join(seq_TF[codon_location])
-                        aa_TF = haskey(NUC2AA, codon_TF) ? NUC2AA[codon_TF] : "-"
-                        codon_MT = join(seq_MT[codon_location])
-                        aa_MT = haskey(NUC2AA, codon_MT) ? NUC2AA[codon_MT] : "-"
-                        if(aa_MT != aa_TF) 
-                            flag_nsyn = true
-                            if(idx_hxb2 ∈ idx_type)
-                                flag_nsyn_restricted = true
+                            if(i_fr ∈ this_frame_set)
+                            codon_location = collect(1:3)
+                            if(i_raw%3 == (i_fr+1)%3) codon_location = i_raw .+ collect( 0:1:2) end
+                            if(i_raw%3 == (i_fr+2)%3) codon_location = i_raw .+ collect(-1:1:1) end
+                            if(i_raw%3 == i_fr%3) codon_location = i_raw .+ collect(-2:1:0) end
+                            if(0 < codon_location[1] && codon_location[end] <= length(seq_TF)) 
+                                codon_TF = join(seq_TF[codon_location])
+                                aa_TF = haskey(NUC2AA, codon_TF) ? NUC2AA[codon_TF] : "-"
+                                codon_MT = join(seq_MT[codon_location])
+                                aa_MT = haskey(NUC2AA, codon_MT) ? NUC2AA[codon_MT] : "-"
+                                if(aa_MT != aa_TF) 
+                                    flag_nsyn = true
+                                    if(idx_hxb2 ∈ idx_type)
+                                        flag_nsyn_restricted = true
+                                    end
+                                end
                             end
                         end
                     end
@@ -1426,19 +1426,23 @@ function get_num_of_nonsyn_reversion(csv_index_and_TF)
                     seq_MT = copy(seq_TF); seq_MT[i_raw] = nuc_MT
                     flag_nsyn, flag_nsyn_restricted = false, false
                     for i_fr in 1:3
-                        codon_location = collect(1:3)
-                        if(i_raw%3 == (frame_temp+1)%3) codon_location = i_raw .+ collect( 0:1:2) end
-                        if(i_raw%3 == (frame_temp+2)%3) codon_location = i_raw .+ collect(-1:1:1) end
-                        if(i_raw%3 == frame_temp%3) codon_location = i_raw .+ collect(-2:1:0) end
-                        #codon_location
-                        codon_TF = join(seq_TF[codon_location])
-                        aa_TF = haskey(NUC2AA, codon_TF) ? NUC2AA[codon_TF] : "-"
-                        codon_MT = join(seq_MT[codon_location])
-                        aa_MT = haskey(NUC2AA, codon_MT) ? NUC2AA[codon_MT] : "-"
-                        if(aa_MT != aa_TF) 
-                            flag_nsyn = true
-                            if(nuc_consensus == nuc_MT)
-                                flag_nsyn_restricted = true
+                        if(i_fr ∈ this_frame_set)
+                            codon_location = collect(1:3)
+                            if(i_raw%3 == (i_fr+1)%3) codon_location = i_raw .+ collect( 0:1:2) end
+                            if(i_raw%3 == (i_fr+2)%3) codon_location = i_raw .+ collect(-1:1:1) end
+                            if(i_raw%3 == i_fr%3) codon_location = i_raw .+ collect(-2:1:0) end
+                            if(0 < codon_location[1] && codon_location[end] <= length(seq_TF)) 
+                                #codon_location
+                                codon_TF = join(seq_TF[codon_location])
+                                aa_TF = haskey(NUC2AA, codon_TF) ? NUC2AA[codon_TF] : "-"
+                                codon_MT = join(seq_MT[codon_location])
+                                aa_MT = haskey(NUC2AA, codon_MT) ? NUC2AA[codon_MT] : "-"
+                                if(aa_MT != aa_TF) 
+                                    flag_nsyn = true
+                                    if(nuc_consensus == nuc_MT)
+                                        flag_nsyn_restricted = true
+                                    end
+                                end
                             end
                         end
                     end
@@ -1451,9 +1455,7 @@ function get_num_of_nonsyn_reversion(csv_index_and_TF)
     return (n_nsyn, n_nsyn_restricted)
 end;
 
-
-
-function get_n_sel_and_N_sel(idx_type_in, csv_raw_in, csv_index_and_TF, idx_type)
+function get_n_sel_and_N_sel(idx_type_in, csv_raw_in, csv_index_and_TF, idx_significant)
     # The following computation is similar to the n_null and N_null computation
     n_nsyn, n_nsyn_restricted = 0, 0
     seq_TF = copy(csv_index_and_TF.TF);
@@ -1470,18 +1472,22 @@ function get_n_sel_and_N_sel(idx_type_in, csv_raw_in, csv_index_and_TF, idx_type
                 seq_MT = copy(seq_TF); seq_MT[i_raw] = nuc_MT        
                 flag_nsyn, flag_nsyn_restricted = false, false
                 for i_fr in 1:3
-                    codon_location = collect(1:3)
-                    if(i_raw%3 == (frame_temp+1)%3) codon_location = i_raw .+ collect( 0:1:2) end
-                    if(i_raw%3 == (frame_temp+2)%3) codon_location = i_raw .+ collect(-1:1:1) end
-                    if(i_raw%3 == frame_temp%3) codon_location = i_raw .+ collect(-2:1:0) end
-                    codon_TF = join(seq_TF[codon_location])
-                    aa_TF = haskey(NUC2AA, codon_TF) ? NUC2AA[codon_TF] : "-"
-                    codon_MT = join(seq_MT[codon_location])
-                    aa_MT = haskey(NUC2AA, codon_MT) ? NUC2AA[codon_MT] : "-"
-                    if(aa_MT != aa_TF) 
-                        flag_nsyn = true
-                        if(i_eff <= i_eff_restricted_max)
-                            flag_nsyn_restricted = true
+                    if(i_fr ∈ this_frame_set)
+                        codon_location = collect(1:3)
+                        if(i_raw%3 == (i_fr+1)%3) codon_location = i_raw .+ collect( 0:1:2) end
+                        if(i_raw%3 == (i_fr+2)%3) codon_location = i_raw .+ collect(-1:1:1) end
+                        if(i_raw%3 == i_fr%3) codon_location = i_raw .+ collect(-2:1:0) end
+                        if(0 < codon_location[1] && codon_location[end] <= length(seq_TF)) 
+                            codon_TF = join(seq_TF[codon_location])
+                            aa_TF = haskey(NUC2AA, codon_TF) ? NUC2AA[codon_TF] : "-"
+                            codon_MT = join(seq_MT[codon_location])
+                            aa_MT = haskey(NUC2AA, codon_MT) ? NUC2AA[codon_MT] : "-"
+                            if(aa_MT != aa_TF) 
+                                flag_nsyn = true
+                                if(i_eff <= i_eff_restricted_max)
+                                    flag_nsyn_restricted = true
+                                end
+                            end
                         end
                     end
                 end
@@ -1496,7 +1502,7 @@ end;
 """
     get_n_sel_and_N_sel_reversion(csv_raw_in, csv_index_and_TF)
 """
-function get_n_sel_and_N_sel_reversion(csv_raw_in, csv_index_and_TF)
+function get_n_sel_and_N_sel_reversion(csv_raw_in, csv_index_and_TF, idx_significant)
     n_nsyn, n_nsyn_restricted = 0, 0
     seq_TF = copy(csv_index_and_TF.TF);
     seq_consensus = copy(csv_index_and_TF.consensus)
@@ -1514,19 +1520,23 @@ function get_n_sel_and_N_sel_reversion(csv_raw_in, csv_index_and_TF)
                 seq_MT = copy(seq_TF); seq_MT[i_raw] = nuc_MT        
                 flag_nsyn, flag_nsyn_restricted = false, false
                 for i_fr in 1:3
-                    codon_location = collect(1:3)
-                    if(i_raw%3 == (frame_temp+1)%3) codon_location = i_raw .+ collect( 0:1:2) end
-                    if(i_raw%3 == (frame_temp+2)%3) codon_location = i_raw .+ collect(-1:1:1) end
-                    if(i_raw%3 == frame_temp%3) codon_location = i_raw .+ collect(-2:1:0) end
-                    codon_TF = join(seq_TF[codon_location])
-                    aa_TF = haskey(NUC2AA, codon_TF) ? NUC2AA[codon_TF] : "-"
-                    codon_MT = join(seq_MT[codon_location])
-                    aa_MT = haskey(NUC2AA, codon_MT) ? NUC2AA[codon_MT] : "-"
-                    if((aa_MT != aa_TF) && (nuc_consensus == nuc_MT))  
-                        flag_nsyn = true
-                        #if(i_eff <= i_eff_restricted_max)
-                        if(n_nsyn_restricted <= i_eff_restricted_max)
-                            flag_nsyn_restricted = true
+                    if(i_fr ∈ this_frame_set)
+                        codon_location = collect(1:3)
+                        if(i_raw%3 == (i_fr+1)%3) codon_location = i_raw .+ collect( 0:1:2) end
+                        if(i_raw%3 == (i_fr+2)%3) codon_location = i_raw .+ collect(-1:1:1) end
+                        if(i_raw%3 == i_fr%3) codon_location = i_raw .+ collect(-2:1:0) end
+                        if(0 < codon_location[1] && codon_location[end] <= length(seq_TF)) 
+                            codon_TF = join(seq_TF[codon_location])
+                            aa_TF = haskey(NUC2AA, codon_TF) ? NUC2AA[codon_TF] : "-"
+                            codon_MT = join(seq_MT[codon_location])
+                            aa_MT = haskey(NUC2AA, codon_MT) ? NUC2AA[codon_MT] : "-"
+                            if((aa_MT != aa_TF) && (nuc_consensus == nuc_MT))  
+                                flag_nsyn = true
+                                #if(i_eff <= i_eff_restricted_max)
+                                if(n_nsyn_restricted <= i_eff_restricted_max)
+                                    flag_nsyn_restricted = true
+                                end
+                            end
                         end
                     end
                 end
