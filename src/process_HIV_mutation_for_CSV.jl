@@ -467,15 +467,14 @@ end;
 function get_TF_AA(csv_index_and_TF, mutant_hxb2)
     seq_TF = copy(csv_index_and_TF.TF);
     mutant_types_set_TF_AA = [[] for _ in 1:3]
-    this_frame_set = [1, 2, 3]
     poly_idx = csv_index_and_TF.polymorphic
     n_poly_idx_max = length(poly_idx) 
     for i_raw in 1:n_poly_idx_max
         if(poly_idx[i_raw] != "NA")
             # Find when first mutation occared 
             idx_hxb2 = csv_index_and_TF.HXB2[i_raw]
+            this_frame_set, this_gene_set = index2frame(idx_hxb2)
             a_WT = csv_index_and_TF.TF[i_raw]
-
             for i_fr in 1:3
                 frame_temp = this_frame_set[i_fr];
                 num_nuc, i_AA_set, gene_check = map_numNUC_to_numAA(idx_hxb2, frame_temp)
@@ -516,12 +515,15 @@ end;
 """ By giving any sequences, gives possible number of glycan holdes, shields and shifts
         get_glycan_plus_minus_shift_statistics(seq_TF)
 """
-function get_glycan_plus_minus_shift_statistics(seq_TF)
+function get_glycan_plus_minus_shift_statistics(csv_index_and_TF)
     n_non_syn, n_N_add, n_N_rem, n_N_sht = 0, 0, 0, 0
-    this_frame_set = [1,2,3]
     i_fr = 3
-    frame_temp = this_frame_set[i_fr];
+    seq_TF = copy(csv_index_and_TF.TF)
     for i_raw in 1:length(seq_TF)
+        idx_hxb2 = extract_integer(csv_index_and_TF.HXB2[i_raw])
+        #this_frame_set, this_gene_set = index2frame(idx_hxb2)
+        #frame_temp = this_frame_set[end];
+        frame_temp = 3
         codon_location_set = [] # that should contains the 5 types of sites. 
         push!(codon_location_set, )
         a_TF = seq_TF[i_raw]
@@ -1350,8 +1352,187 @@ function get_x_fold(vec_in, idx_sel, csv_index_and_TF, idx_type; n_null=0, N_nul
     if(N_sel > 0) α_sel = n_sel / N_sel end 
     if(α_null > 0) x_fold = α_sel / α_null end
     
-    @printf("N_sel:%d n_sel:%d N_null:%d n_null:%d\n", N_sel, n_sel, N_null, n_null)
+    @printf("N_sel:%d\tn_sel:%d\tN_null:%d\tn_null:%d", N_sel, n_sel, N_null, n_null)
     return (n_sel, n_null, N_sel, x_fold)
+end;
+
+
+""" get_x_fold(vec_in, idx_sel, csv_index_and_TF, idx_type; reversion=false)
+"""
+function get_x_fold(n_sel, N_sel, n_null, N_null)
+    # Franction for null or hypothetical mutations
+    α_null = n_null / N_null
+    α_sel, x_fold = 0, 0
+    if(N_sel > 0) α_sel = n_sel / N_sel end 
+    if(α_null > 0) x_fold = α_sel / α_null end
+    @printf("N_sel:%d\tn_sel:%d\tN_null:%d\tn_null:%d", N_sel, n_sel, N_null, n_null)
+    return (n_sel, n_null, N_sel, x_fold)
+end;
+
+
+""" Count the number of nonsynonymous mutations and nonsynonymous mutations restricted to a specific region or types.
+    get_num_of_nonsyn(csv_index_and_TF, idx_type)
+"""
+function get_num_of_nonsyn(csv_index_and_TF, idx_type)
+    n_nsyn, n_nsyn_restricted = 0, 0
+    seq_TF = copy(csv_index_and_TF.TF);
+    for i_raw in 1:length(seq_TF)
+        nuc_TF = seq_TF[i_raw]
+        idx_hxb2 = extract_integer(csv_index_and_TF.HXB2[i_raw])
+        this_frame_set, this_gene_set = index2frame(idx_hxb2)
+        if(nuc_TF != "-")
+            for nuc_MT in NUC
+                if(nuc_MT != nuc_TF)
+                    seq_MT = copy(seq_TF); seq_MT[i_raw] = nuc_MT        
+                    flag_nsyn, flag_nsyn_restricted = false, false
+                    for i_fr in 1:3
+                        codon_location = collect(1:3)
+                        if(i_raw%3 == (frame_temp+1)%3) codon_location = i_raw .+ collect( 0:1:2) end
+                        if(i_raw%3 == (frame_temp+2)%3) codon_location = i_raw .+ collect(-1:1:1) end
+                        if(i_raw%3 == frame_temp%3) codon_location = i_raw .+ collect(-2:1:0) end
+                        codon_TF = join(seq_TF[codon_location])
+                        aa_TF = haskey(NUC2AA, codon_TF) ? NUC2AA[codon_TF] : "-"
+                        codon_MT = join(seq_MT[codon_location])
+                        aa_MT = haskey(NUC2AA, codon_MT) ? NUC2AA[codon_MT] : "-"
+                        if(aa_MT != aa_TF) 
+                            flag_nsyn = true
+                            if(idx_hxb2 ∈ idx_type)
+                                flag_nsyn_restricted = true
+                            end
+                        end
+                    end
+                    if(flag_nsyn) n_nsyn += 1 end
+                    if(flag_nsyn_restricted) n_nsyn_restricted += 1 end
+                end
+            end
+        end
+    end
+    return (n_nsyn, n_nsyn_restricted)
+end;
+
+# idx_type is not necessary for this function. --> need to fix this!
+function get_num_of_nonsyn_reversion(csv_index_and_TF)
+    n_nsyn, n_nsyn_restricted = 0, 0
+    seq_TF = copy(csv_index_and_TF.TF);
+    seq_consensus = copy(csv_index_and_TF.consensus)
+    for i_raw in 1:length(seq_TF)
+        nuc_TF = seq_TF[i_raw]
+        nuc_consensus = seq_consensus[i_raw]
+        idx_hxb2 = extract_integer(csv_index_and_TF.HXB2[i_raw])
+        this_frame_set, this_gene_set = index2frame(idx_hxb2)
+        if(nuc_TF != "-")
+            for nuc_MT in NUC
+                if(nuc_MT != nuc_TF) 
+                    seq_MT = copy(seq_TF); seq_MT[i_raw] = nuc_MT
+                    flag_nsyn, flag_nsyn_restricted = false, false
+                    for i_fr in 1:3
+                        codon_location = collect(1:3)
+                        if(i_raw%3 == (frame_temp+1)%3) codon_location = i_raw .+ collect( 0:1:2) end
+                        if(i_raw%3 == (frame_temp+2)%3) codon_location = i_raw .+ collect(-1:1:1) end
+                        if(i_raw%3 == frame_temp%3) codon_location = i_raw .+ collect(-2:1:0) end
+                        #codon_location
+                        codon_TF = join(seq_TF[codon_location])
+                        aa_TF = haskey(NUC2AA, codon_TF) ? NUC2AA[codon_TF] : "-"
+                        codon_MT = join(seq_MT[codon_location])
+                        aa_MT = haskey(NUC2AA, codon_MT) ? NUC2AA[codon_MT] : "-"
+                        if(aa_MT != aa_TF) 
+                            flag_nsyn = true
+                            if(nuc_consensus == nuc_MT)
+                                flag_nsyn_restricted = true
+                            end
+                        end
+                    end
+                    if(flag_nsyn) n_nsyn += 1 end
+                    if(flag_nsyn_restricted) n_nsyn_restricted += 1 end
+                end
+            end
+        end
+    end 
+    return (n_nsyn, n_nsyn_restricted)
+end;
+
+
+
+function get_n_sel_and_N_sel(idx_type_in, csv_raw_in, csv_index_and_TF, idx_type)
+    # The following computation is similar to the n_null and N_null computation
+    n_nsyn, n_nsyn_restricted = 0, 0
+    seq_TF = copy(csv_index_and_TF.TF);
+    L_TF = length(csv_index_and_TF.HXB2)
+    i_eff_restricted_max = count(idx_significant)
+    for i_eff in 1:count(idx_type_in)
+        i_raw = collect(1:L_TF)[csv_index_and_TF.HXB2 .== csv_raw_in.HXB2_index[idx_type_in][i_eff]][1] # This line is clitical to get the HXB2 index in TF seq.
+        nuc_MT = csv_raw_in.nucleotide[idx_type_in][i_eff]
+        nuc_TF = seq_TF[i_raw]
+        idx_hxb2 = extract_integer(csv_index_and_TF.HXB2[i_raw])
+        this_frame_set, this_gene_set = index2frame(idx_hxb2)
+        if(nuc_TF != "-")
+            if(nuc_MT != nuc_TF)
+                seq_MT = copy(seq_TF); seq_MT[i_raw] = nuc_MT        
+                flag_nsyn, flag_nsyn_restricted = false, false
+                for i_fr in 1:3
+                    codon_location = collect(1:3)
+                    if(i_raw%3 == (frame_temp+1)%3) codon_location = i_raw .+ collect( 0:1:2) end
+                    if(i_raw%3 == (frame_temp+2)%3) codon_location = i_raw .+ collect(-1:1:1) end
+                    if(i_raw%3 == frame_temp%3) codon_location = i_raw .+ collect(-2:1:0) end
+                    codon_TF = join(seq_TF[codon_location])
+                    aa_TF = haskey(NUC2AA, codon_TF) ? NUC2AA[codon_TF] : "-"
+                    codon_MT = join(seq_MT[codon_location])
+                    aa_MT = haskey(NUC2AA, codon_MT) ? NUC2AA[codon_MT] : "-"
+                    if(aa_MT != aa_TF) 
+                        flag_nsyn = true
+                        if(i_eff <= i_eff_restricted_max)
+                            flag_nsyn_restricted = true
+                        end
+                    end
+                end
+                if(flag_nsyn) n_nsyn += 1 end
+                if(flag_nsyn_restricted) n_nsyn_restricted += 1 end
+            end
+        end
+    end
+    return (n_nsyn, n_nsyn_restricted)
+end;
+
+"""
+    get_n_sel_and_N_sel_reversion(csv_raw_in, csv_index_and_TF)
+"""
+function get_n_sel_and_N_sel_reversion(csv_raw_in, csv_index_and_TF)
+    n_nsyn, n_nsyn_restricted = 0, 0
+    seq_TF = copy(csv_index_and_TF.TF);
+    L_TF = length(csv_index_and_TF.HXB2)
+    i_eff_restricted_max = count(idx_significant)
+    for i_eff in 1:length(csv_raw_in.HXB2_index)
+        i_raw = collect(1:L_TF)[csv_index_and_TF.HXB2 .== csv_raw_in.HXB2_index[i_eff]][1] # This line is clitical to get the HXB2 index in TF seq.
+        nuc_MT = csv_raw_in.nucleotide[i_eff]
+        nuc_TF = seq_TF[i_raw]
+        idx_hxb2 = extract_integer(csv_index_and_TF.HXB2[i_raw])
+        this_frame_set, this_gene_set = index2frame(idx_hxb2)
+        if(nuc_TF != "-")
+            if(nuc_MT != nuc_TF)
+                seq_MT = copy(seq_TF); seq_MT[i_raw] = nuc_MT        
+                flag_nsyn, flag_nsyn_restricted = false, false
+                for i_fr in 1:3
+                    codon_location = collect(1:3)
+                    if(i_raw%3 == (frame_temp+1)%3) codon_location = i_raw .+ collect( 0:1:2) end
+                    if(i_raw%3 == (frame_temp+2)%3) codon_location = i_raw .+ collect(-1:1:1) end
+                    if(i_raw%3 == frame_temp%3) codon_location = i_raw .+ collect(-2:1:0) end
+                    codon_TF = join(seq_TF[codon_location])
+                    aa_TF = haskey(NUC2AA, codon_TF) ? NUC2AA[codon_TF] : "-"
+                    codon_MT = join(seq_MT[codon_location])
+                    aa_MT = haskey(NUC2AA, codon_MT) ? NUC2AA[codon_MT] : "-"
+                    if(aa_MT != aa_TF) 
+                        flag_nsyn = true
+                        if(i_eff <= i_eff_restricted_max)
+                            flag_nsyn_restricted = true
+                        end
+                    end
+                end
+                if(flag_nsyn) n_nsyn += 1 end
+                if(flag_nsyn_restricted) n_nsyn_restricted += 1 end
+            end
+        end
+    end 
+    return (n_nsyn, n_nsyn_restricted)
 end;
 
 function filter_nuc_mut(mutant_types_set_nuc_simple)
