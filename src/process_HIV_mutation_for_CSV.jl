@@ -1499,10 +1499,12 @@ end;
 function get_n_sel_and_N_sel_reversion(csv_raw_in, csv_index_and_TF)
     n_nsyn, n_nsyn_restricted = 0, 0
     seq_TF = copy(csv_index_and_TF.TF);
+    seq_consensus = copy(csv_index_and_TF.consensus)
     L_TF = length(csv_index_and_TF.HXB2)
     i_eff_restricted_max = count(idx_significant)
     for i_eff in 1:length(csv_raw_in.HXB2_index)
         i_raw = collect(1:L_TF)[csv_index_and_TF.HXB2 .== csv_raw_in.HXB2_index[i_eff]][1] # This line is clitical to get the HXB2 index in TF seq.
+        nuc_consensus = seq_consensus[i_raw]
         nuc_MT = csv_raw_in.nucleotide[i_eff]
         nuc_TF = seq_TF[i_raw]
         idx_hxb2 = extract_integer(csv_index_and_TF.HXB2[i_raw])
@@ -1520,9 +1522,10 @@ function get_n_sel_and_N_sel_reversion(csv_raw_in, csv_index_and_TF)
                     aa_TF = haskey(NUC2AA, codon_TF) ? NUC2AA[codon_TF] : "-"
                     codon_MT = join(seq_MT[codon_location])
                     aa_MT = haskey(NUC2AA, codon_MT) ? NUC2AA[codon_MT] : "-"
-                    if(aa_MT != aa_TF) 
+                    if((aa_MT != aa_TF) && (nuc_consensus == nuc_MT))  
                         flag_nsyn = true
-                        if(i_eff <= i_eff_restricted_max)
+                        #if(i_eff <= i_eff_restricted_max)
+                        if(n_nsyn_restricted <= i_eff_restricted_max)
                             flag_nsyn_restricted = true
                         end
                     end
