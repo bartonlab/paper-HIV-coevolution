@@ -1567,3 +1567,38 @@ function filter_nuc_mut(mutant_types_set_nuc_simple)
     #@assert count(length.(mutant_nuc_simple_filtered) .!= 1) == 0;
     return mutant_nuc_simple_filtered
 end;
+
+""" log_factorial_stirling(n)
+"""
+function log_factorial_stirling(n)
+    if n <=0
+        return 0.0
+    else
+        return (n * log(n) - n + log(2π * n) / 2) / log(10)  # Stiring's approximation.
+    end
+end
+
+""" log_binomial_coefficient(n, k)
+"""
+function log_binomial_coefficient(n, k)
+    return log_factorial_stirling(n) - log_factorial_stirling(k) - log_factorial_stirling(n - k)
+end
+
+""" fishers_exact_test(A, B, C, D)
+"""
+function fishers_exact_test(A, B, C, D)
+    # n_sel is selected mutation with chracter
+    # n_sel_tot is selected mutation with and without charcter
+    # N_chara is mutation with chracter
+    # n_mut_tot is total mutations 
+    #A = n_sel
+    #B = n_sel_tot - n_sel
+    #C = N_chara - n_sel
+    #D = n_mut_tot - (n_sel_tot + N_chara - n_sel)
+    total = A + B + C + D
+    #@printf("A+B:%d\tA:%d\tC+D:%d\tC:%d\ttotal:%d\tA+D:%d\n", A, B, C, D, total, A+D)
+    log_p_value = log_binomial_coefficient(A + B, A) + 
+                  log_binomial_coefficient(C + D, C) - 
+                  log_binomial_coefficient(total, A + C)
+    return log_p_value
+end;
