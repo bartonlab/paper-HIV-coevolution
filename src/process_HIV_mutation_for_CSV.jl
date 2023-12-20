@@ -1380,9 +1380,10 @@ end;
 """ Count the number of nonsynonymous mutations and nonsynonymous mutations restricted to a specific region or types.
     get_num_of_nonsyn(csv_index_and_TF, idx_type)
 """
-function get_num_of_nonsyn(csv_index_and_TF, idx_type_in)
+function get_num_of_nonsyn(csv_index_and_TF, csv_raw_in, idx_type_in)
     n_nsyn_restricted = 0
     seq_TF = copy(csv_index_and_TF.TF);
+    n_list = length(csv_raw_in.HXB2_index)
     for i_raw in 1:length(seq_TF)
         nuc_TF = seq_TF[i_raw]
         idx_hxb2 = extract_integer(csv_index_and_TF.HXB2[i_raw])
@@ -1404,14 +1405,15 @@ function get_num_of_nonsyn(csv_index_and_TF, idx_type_in)
                                 codon_MT = join(seq_MT[codon_location])
                                 aa_MT = haskey(NUC2AA, codon_MT) ? NUC2AA[codon_MT] : "-"
                                 if(aa_MT != aa_TF)
-                                                                        
-                                    
-                                    if(idx_type_in[i_eff])
-                                        flag_nsyn_restricted = true
+                                    idx1 = csv_raw_in.HXB2_index .== csv_index_and_TF.HXB2[i_raw]
+                                    idx2 = csv_raw_in.nucleotide .== nuc_MT
+                                    idx_temp = idx1 .* idx2
+                                    if(count(idx_temp)>0)
+                                        i_eff = collect(1:n_list)[idx_temp][1]                                                                    
+                                        if(idx_type_in[i_eff])
+                                            flag_nsyn_restricted = true
+                                        end
                                     end
-
-
-
                                 end
                             end
                         end
@@ -1426,7 +1428,7 @@ end;
 
 # idx_type is not necessary for this function. --> need to fix this!
 function get_num_of_nonsyn_reversion(csv_index_and_TF)
-    n_nsyn_restricted = 0
+    n_nsyn_restricted, n_nsyn = 0, 0
     seq_TF = copy(csv_index_and_TF.TF);
     seq_consensus = copy(csv_index_and_TF.consensus)
     for i_raw in 1:length(seq_TF)
@@ -1436,9 +1438,9 @@ function get_num_of_nonsyn_reversion(csv_index_and_TF)
         this_frame_set, this_gene_set = index2frame(idx_hxb2)
         if(nuc_TF != "-")
             for nuc_MT in NUC
-                if(nuc_MT != nuc_TF) 
+                if(nuc_MT != nuc_TF && nuc_MT != "-") 
                     seq_MT = copy(seq_TF); seq_MT[i_raw] = nuc_MT
-                    flag_nsyn_restricted = false
+                    flag_nsyn_restricted, flag_nsyn = false, false
                     for i_fr in 1:3
                         if(i_fr ∈ this_frame_set)
                             codon_location = collect(1:3)
@@ -1451,7 +1453,8 @@ function get_num_of_nonsyn_reversion(csv_index_and_TF)
                                 aa_TF = haskey(NUC2AA, codon_TF) ? NUC2AA[codon_TF] : "-"
                                 codon_MT = join(seq_MT[codon_location])
                                 aa_MT = haskey(NUC2AA, codon_MT) ? NUC2AA[codon_MT] : "-"
-                                if(aa_MT != aa_TF) 
+                                if(aa_MT != aa_TF)
+                                    flag_nsyn = true 
                                     if(nuc_consensus == nuc_MT)
                                         flag_nsyn_restricted = true
                                     end
@@ -1460,11 +1463,12 @@ function get_num_of_nonsyn_reversion(csv_index_and_TF)
                         end
                     end
                     if(flag_nsyn_restricted) n_nsyn_restricted += 1 end
+                    if(flag_nsyn) n_nsyn += 1 end
                 end
             end
         end
     end 
-    return n_nsyn_restricted
+    return (n_nsyn_restricted, n_nsyn)
 end;
 
 function get_n_sel_and_N_sel(csv_raw_in, csv_index_and_TF, idx_type_in, idx_significant)
@@ -1513,7 +1517,7 @@ end;
 """ get_n_sel_and_N_sel_reversion(csv_raw_in, csv_index_and_TF)
 """
 function get_n_sel_and_N_sel_reversion(csv_raw_in, csv_index_and_TF, idx_significant)
-    n_nsyn_restricted = 0
+    n_nsyn_restricted, n_nsyn = 0, 0
     seq_TF = copy(csv_index_and_TF.TF);
     seq_consensus = copy(csv_index_and_TF.consensus)
     L_TF = length(csv_index_and_TF.HXB2)
@@ -1528,7 +1532,7 @@ function get_n_sel_and_N_sel_reversion(csv_raw_in, csv_index_and_TF, idx_signifi
         if(nuc_TF != "-")
             if(nuc_MT != nuc_TF)
                 seq_MT = copy(seq_TF); seq_MT[i_raw] = nuc_MT        
-                flag_nsyn_restricted = false
+                flag_nsyn_restricted, flag_nsyn = false, false
                 for i_fr in 1:3
                     if(i_fr ∈ this_frame_set)
                         codon_location = collect(1:3)
@@ -1540,8 +1544,9 @@ function get_n_sel_and_N_sel_reversion(csv_raw_in, csv_index_and_TF, idx_signifi
                             aa_TF = haskey(NUC2AA, codon_TF) ? NUC2AA[codon_TF] : "-"
                             codon_MT = join(seq_MT[codon_location])
                             aa_MT = haskey(NUC2AA, codon_MT) ? NUC2AA[codon_MT] : "-"
-                            if((aa_MT != aa_TF) && (nuc_consensus == nuc_MT))  
-                                if(n_nsyn_restricted <= i_eff_restricted_max)
+                            if(aa_MT != aa_TF)  
+                                flag_nsyn = true
+                                if(nuc_consensus == nuc_MT)
                                     flag_nsyn_restricted = true
                                 end
                             end
@@ -1549,10 +1554,11 @@ function get_n_sel_and_N_sel_reversion(csv_raw_in, csv_index_and_TF, idx_signifi
                     end
                 end
                 if(flag_nsyn_restricted) n_nsyn_restricted += 1 end
+                if(flag_nsyn) n_nsyn += 1 end
             end
         end
     end 
-    return n_nsyn_restricted
+    return (n_nsyn_restricted, n_nsyn) 
 end;
 
 function filter_nuc_mut(mutant_types_set_nuc_simple)
