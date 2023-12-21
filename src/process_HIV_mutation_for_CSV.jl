@@ -18,6 +18,7 @@ idx_HXB2_CD4BS = [
     collect(7629:7631); 
     collect(7635:7655) ]
 # --------------------------------- CH848 Specific --------------------------------- #
+idx_HXB2_entire_gene = collect(1:9719)
 idx_HXB2_half = collect(2000:9719)
 idx_HXB2_ENV = collect(6225:8795)
 idx_HXB2_POL = collect(2085:5096)
@@ -1376,14 +1377,11 @@ function get_x_fold(n_sel, N_sel, n_null, N_null)
     return (n_sel, n_null, N_sel, x_fold)
 end;
 
-
-""" Count the number of nonsynonymous mutations and nonsynonymous mutations restricted to a specific region or types.
-    get_num_of_nonsyn(csv_index_and_TF, idx_type)
+""" get_num_of_nonsyn(csv_index_and_TF, idx_HXB2_type)
 """
-function get_num_of_nonsyn(csv_index_and_TF, csv_raw_in, idx_type_in)
-    n_nsyn_restricted = 0
+function get_num_of_nonsyn(csv_index_and_TF, idx_HXB2_type)
+    n_nsyn_restricted, n_nsyn = 0, 0
     seq_TF = copy(csv_index_and_TF.TF);
-    n_list = length(csv_raw_in.HXB2_index)
     for i_raw in 1:length(seq_TF)
         nuc_TF = seq_TF[i_raw]
         idx_hxb2 = extract_integer(csv_index_and_TF.HXB2[i_raw])
@@ -1392,9 +1390,9 @@ function get_num_of_nonsyn(csv_index_and_TF, csv_raw_in, idx_type_in)
             for nuc_MT in NUC
                 if(nuc_MT != nuc_TF)
                     seq_MT = copy(seq_TF); seq_MT[i_raw] = nuc_MT        
-                    flag_nsyn_restricted = false
+                    flag_nsyn, flag_nsyn_restricted = false, false
                     for i_fr in 1:3
-                            if(i_fr ∈ this_frame_set)
+                        if(i_fr ∈ this_frame_set)
                             codon_location = collect(1:3)
                             if(i_raw%3 == (i_fr+1)%3) codon_location = i_raw .+ collect( 0:1:2) end
                             if(i_raw%3 == (i_fr+2)%3) codon_location = i_raw .+ collect(-1:1:1) end
@@ -1404,27 +1402,23 @@ function get_num_of_nonsyn(csv_index_and_TF, csv_raw_in, idx_type_in)
                                 aa_TF = haskey(NUC2AA, codon_TF) ? NUC2AA[codon_TF] : "-"
                                 codon_MT = join(seq_MT[codon_location])
                                 aa_MT = haskey(NUC2AA, codon_MT) ? NUC2AA[codon_MT] : "-"
-                                if(aa_MT != aa_TF)
-                                    idx1 = csv_raw_in.HXB2_index .== csv_index_and_TF.HXB2[i_raw]
-                                    idx2 = csv_raw_in.nucleotide .== nuc_MT
-                                    idx_temp = idx1 .* idx2
-                                    if(count(idx_temp)>0)
-                                        i_eff = collect(1:n_list)[idx_temp][1]                                                                    
-                                        if(idx_type_in[i_eff])
-                                            flag_nsyn_restricted = true
-                                        end
+                                if(aa_MT != aa_TF) 
+                                    flag_nsyn = true
+                                    if(idx_hxb2 ∈ idx_HXB2_type)
+                                        flag_nsyn_restricted = true
                                     end
                                 end
                             end
                         end
                     end
+                    if(flag_nsyn) n_nsyn += 1 end
                     if(flag_nsyn_restricted) n_nsyn_restricted += 1 end
                 end
             end
         end
     end
-    return n_nsyn_restricted
-end;
+    return (n_nsyn_restricted, n_nsyn)
+end
 
 # idx_type is not necessary for this function. --> need to fix this!
 function get_num_of_nonsyn_reversion(csv_index_and_TF)
@@ -1528,7 +1522,7 @@ function get_n_sel_and_N_sel_reversion(csv_raw_in, csv_index_and_TF, idx_signifi
         nuc_MT = csv_raw_in.nucleotide[i_eff]
         nuc_TF = seq_TF[i_raw]
         #idx_hxb2 = extract_integer(csv_index_and_TF.HXB2[i_raw])
-        idx_hxb2 = extract_integer(csv_raw_in.HXB2_idx[i_eff])
+        idx_hxb2 = extract_integer(csv_raw_in.HXB2_index[i_eff])
         this_frame_set, this_gene_set = index2frame(idx_hxb2)
         if(nuc_TF != "-")
             if(nuc_MT != nuc_TF)
