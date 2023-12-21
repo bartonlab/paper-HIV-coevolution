@@ -1527,7 +1527,8 @@ function get_n_sel_and_N_sel_reversion(csv_raw_in, csv_index_and_TF, idx_signifi
         nuc_consensus = seq_consensus[i_raw]
         nuc_MT = csv_raw_in.nucleotide[i_eff]
         nuc_TF = seq_TF[i_raw]
-        idx_hxb2 = extract_integer(csv_index_and_TF.HXB2[i_raw])
+        #idx_hxb2 = extract_integer(csv_index_and_TF.HXB2[i_raw])
+        idx_hxb2 = extract_integer(csv_raw_in.HXB2_idx[i_eff])
         this_frame_set, this_gene_set = index2frame(idx_hxb2)
         if(nuc_TF != "-")
             if(nuc_MT != nuc_TF)
@@ -1546,7 +1547,8 @@ function get_n_sel_and_N_sel_reversion(csv_raw_in, csv_index_and_TF, idx_signifi
                             aa_MT = haskey(NUC2AA, codon_MT) ? NUC2AA[codon_MT] : "-"
                             if(aa_MT != aa_TF)  
                                 flag_nsyn = true
-                                if(nuc_consensus == nuc_MT)
+                                #if(nuc_consensus == nuc_MT)
+                                if(csv_raw_in.reversion[i_eff])
                                     flag_nsyn_restricted = true
                                 end
                             end
