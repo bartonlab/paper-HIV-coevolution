@@ -1593,21 +1593,211 @@ function log_binomial_coefficient(n, k)
     return log_factorial_stirling(n) - log_factorial_stirling(k) - log_factorial_stirling(n - k)
 end
 
-""" fishers_exact_test(A, B, C, D)
+""" Fishers_exact_test(A, B, C, D)
 """
 function fishers_exact_test(A, B, C, D)
-    # n_sel is selected mutation with chracter
-    # n_sel_tot is selected mutation with and without charcter
-    # N_chara is mutation with chracter
-    # n_mut_tot is total mutations 
-    #A = n_sel
-    #B = n_sel_tot - n_sel
-    #C = N_chara - n_sel
-    #D = n_mut_tot - (n_sel_tot + N_chara - n_sel)
     total = A + B + C + D
     #@printf("A+B:%d\tA:%d\tC+D:%d\tC:%d\ttotal:%d\tA+D:%d\n", A, B, C, D, total, A+D)
     log_p_value = log_binomial_coefficient(A + B, A) + 
                   log_binomial_coefficient(C + D, C) - 
                   log_binomial_coefficient(total, A + C)
     return log_p_value
+end;
+
+""" get_enrichment_and_pvalues(csv_raw_in, csv_index_and_TF, s_threshold_set)
+    # This function is used for the enrichment calculation and Fisher's exact test. 
+    # The input is the csv file of the mutations and the csv file of the TF seq.
+    # The output is the enrichment and the p-value for each mutation.
+"""
+function get_enrichment_and_pvalues(csv_raw_in, csv_index_and_TF, s_threshold_set)
+    x_fold_V1_set = []; n_fold_V1_set = []; fisher_V1_set = []
+    x_fold_V2_set = []; n_fold_V2_set = []; fisher_V2_set = []
+    x_fold_V3_set = []; n_fold_V3_set = []; fisher_V3_set = []
+    x_fold_V4_set = []; n_fold_V4_set = []; fisher_V4_set = []
+    x_fold_V5_set = []; n_fold_V5_set = []; fisher_V5_set = []
+    x_fold_reversion_set = []; n_fold_reversion_set = []; fisher_reversion_set = []
+    x_fold_LoopD_set = []; n_fold_LoopD_set = []; fisher_LoopD_set = []
+    x_fold_CD4BS_set = []; n_fold_CD4BS_set = []; fisher_CD4BS_set = []
+    x_fold_N_rem_set = []; n_fold_N_rem_set = []; fisher_N_rem_set = []
+    x_fold_N_add_set = []; n_fold_N_add_set = []; fisher_N_add_set = []
+    x_fold_N_sht_set = []; n_fold_N_sht_set = []; fisher_N_sht_set = []
+    α_selected_est = []
+
+    # ------- Make boolean vectors -------- #
+    idx_type_in_all = [true for x in extract_integer.(csv_raw_in.HXB2_index)] 
+    idx_type_in_LD = [x ∈ idx_HXB2_LD for x in extract_integer.(csv_raw_in.HXB2_index)] 
+    idx_type_in_CD4BS = [x ∈ idx_HXB2_CD4BS for x in extract_integer.(csv_raw_in.HXB2_index)] 
+    idx_type_in_V1 = [x ∈ idx_HXB2_V1 for x in extract_integer.(csv_raw_in.HXB2_index)] 
+    idx_type_in_V2 = [x ∈ idx_HXB2_V2 for x in extract_integer.(csv_raw_in.HXB2_index)] 
+    idx_type_in_V3 = [x ∈ idx_HXB2_V3 for x in extract_integer.(csv_raw_in.HXB2_index)] 
+    idx_type_in_V4 = [x ∈ idx_HXB2_V4 for x in extract_integer.(csv_raw_in.HXB2_index)] 
+    idx_type_in_V5 = [x ∈ idx_HXB2_V5 for x in extract_integer.(csv_raw_in.HXB2_index)] 
+    idx_type_in_N_add = copy(csv_raw_in.N_linked_glycan_plus_fr3 .> 0 )
+    idx_type_in_N_rem = copy(csv_raw_in.N_linked_glycan_minus_fr3 .> 0 )
+    idx_type_in_N_sht = copy(csv_raw_in.N_linked_glycan_shift_fr3 .> 0 )
+
+    # ------- Get the nuber of mutations assuming the random prediction (= null moodel) -------- #
+    idx_all_true = repeat([true], length(csv_raw_in.HXB2))
+    N_sel_all = get_n_sel_and_N_sel(csv_raw_in, csv_index_and_TF, idx_type_in_all, idx_all_true)
+    #
+    n_sel_all_LD = get_n_sel_and_N_sel(csv_raw_in, csv_index_and_TF, idx_type_in_LD, idx_all_true) # only for Fisher's exact test!
+    n_sel_all_CD4BS = get_n_sel_and_N_sel(csv_raw_in, csv_index_and_TF, idx_type_in_CD4BS, idx_all_true) # only for Fisher's exact test!
+    n_sel_all_V1 = get_n_sel_and_N_sel(csv_raw_in, csv_index_and_TF, idx_type_in_V1, idx_all_true) # only for Fisher's exact test!
+    n_sel_all_V2 = get_n_sel_and_N_sel(csv_raw_in, csv_index_and_TF, idx_type_in_V2, idx_all_true) # only for Fisher's exact test!
+    n_sel_all_V3 = get_n_sel_and_N_sel(csv_raw_in, csv_index_and_TF, idx_type_in_V3, idx_all_true) # only for Fisher's exact test!
+    n_sel_all_V4 = get_n_sel_and_N_sel(csv_raw_in, csv_index_and_TF, idx_type_in_V4, idx_all_true) # only for Fisher's exact test!
+    n_sel_all_V5 = get_n_sel_and_N_sel(csv_raw_in, csv_index_and_TF, idx_type_in_V5, idx_all_true) # only for Fisher's exact test!
+    n_sel_all_N_add = get_n_sel_and_N_sel(csv_raw_in, csv_index_and_TF, idx_type_in_N_add, idx_all_true) # only for Fisher's exact test!
+    n_sel_all_N_rem = get_n_sel_and_N_sel(csv_raw_in, csv_index_and_TF, idx_type_in_N_rem, idx_all_true) # only for Fisher's exact test!
+    n_sel_all_N_sht = get_n_sel_and_N_sel(csv_raw_in, csv_index_and_TF, idx_type_in_N_sht, idx_all_true) # only for Fisher's exact test!
+    (n_sel_all_rev, n_sel_all_rev_temp) = get_n_sel_and_N_sel_reversion(csv_raw_in, csv_index_and_TF, idx_all_true) # only for Fisher's exact test!
+
+    # ------- Get the nuber of mutations assuming the random prediction (= null moodel) -------- #
+    (N_null_temp_all, N_null_all) = get_num_of_nonsyn(csv_index_and_TF, idx_HXB2_entire_gene)
+    @assert N_null_temp_all == N_null_all
+    (n_null_LD, N_null_LD_all) = get_num_of_nonsyn(csv_index_and_TF, idx_HXB2_LD)
+    (n_null_CD4BS, N_null_CD4BS_all) = get_num_of_nonsyn(csv_index_and_TF, idx_HXB2_CD4BS)
+    (n_null_V1, N_null_V1_all) = get_num_of_nonsyn(csv_index_and_TF, idx_HXB2_V1)
+    (n_null_V2, N_null_V2_all) = get_num_of_nonsyn(csv_index_and_TF, idx_HXB2_V2)
+    (n_null_V3, N_null_V3_all) = get_num_of_nonsyn(csv_index_and_TF, idx_HXB2_V3)
+    (n_null_V4, N_null_V4_all) = get_num_of_nonsyn(csv_index_and_TF, idx_HXB2_V4)
+    (n_null_V5, N_null_V5_all) = get_num_of_nonsyn(csv_index_and_TF, idx_HXB2_V5)
+    (N_null_N_glycan_all, n_null_N_add, n_null_N_rem, n_null_N_sht) = get_glycan_plus_minus_shift_statistics(csv_index_and_TF);
+    (n_null_rev, N_null_rev_all) = get_num_of_nonsyn_reversion(csv_index_and_TF);
+
+    #@printf("%d %d %d %d %d %d %d %d \n", N_null_all, N_null_LD_all, N_null_CD4BS_all, N_null_V1_all, N_null_V2_all, N_null_V3_all, N_null_V4_all, N_null_V5_all)
+    #@printf("%d %d\n", N_null_N_glycan_all, N_null_rev_all)
+    #@printf("%d %d %d\n\n", n_null_N_add, n_null_N_rem, n_null_N_sht);
+    #@printf("%d %d %d %d %d %d %d \n", n_sel_all_LD, n_sel_all_CD4BS, n_sel_all_V1, n_sel_all_V2, n_sel_all_V3, n_sel_all_V4, n_sel_all_V5)
+    #@printf("%d, %d %d %d \n", n_sel_all_rev, n_sel_all_N_add, n_sel_all_N_rem, n_sel_all_N_sht);
+
+    # ------- Get the nuber of mutations -------- #
+    # ( top x=100% && property)
+    for s_threshold_RMs in s_threshold_set
+    #s_threshold_RMs = 0.02
+        idx_significant = csv_raw_in.s_MPL .>= s_threshold_RMs;
+        len_tot_entries = length(csv_raw_in.HXB2_index)
+        len_selected = count(idx_significant)
+        α_selected = len_selected / len_tot_entries;
+        n_mut_tot = length(idx_significant) # For Fisher's exact test
+        n_mut_sel_tot = count(idx_significant) # For Fisher's exact test
+
+        n_sel_LD = get_n_sel_and_N_sel(csv_raw_in, csv_index_and_TF, idx_type_in_LD, idx_significant)
+        (n_subjected_LoopD, n_estimated_LoopD, n_tot_LoopD, x_fold_LoopD) = get_x_fold(n_sel_LD, α_selected * N_sel_all, n_null_LD, N_null_LD_all)
+        # Fisher's exact test
+        A = n_sel_LD; B = n_mut_sel_tot - A; C = n_null_LD - A
+        D = N_null_all - (A+B+C)
+        log_Fisher_LD = fishers_exact_test(A, B, C, D)
+
+        n_sel_CD4BS = get_n_sel_and_N_sel(csv_raw_in, csv_index_and_TF, idx_type_in_CD4BS, idx_significant)
+        (n_subjected_CD4BS, n_estimated_CD4BS, n_tot_CD4BS, x_fold_CD4BS) = get_x_fold(n_sel_CD4BS, α_selected * N_sel_all, n_null_CD4BS, N_null_CD4BS_all)
+        # Fisher's exact test
+        A = n_sel_CD4BS; B = n_mut_sel_tot - A; C = n_null_CD4BS - A
+        D = N_null_all - (A+B+C)
+        log_Fisher_CD4BS = fishers_exact_test(A, B, C, D)
+
+        n_sel_V1 = get_n_sel_and_N_sel(csv_raw_in, csv_index_and_TF, idx_type_in_V1, idx_significant)
+        (n_subjected_V1, n_estimated_V1, n_tot_V1, x_fold_V1) = get_x_fold(n_sel_V1,α_selected * N_sel_all, n_null_V1, N_null_V1_all)
+        # Fisher's exact test
+        A = n_sel_V1; B = n_mut_sel_tot - A; C = n_null_V1 - A
+        D = N_null_all - (A+B+C)
+        log_Fisher_V1 = fishers_exact_test(A, B, C, D)
+
+        n_sel_V2 = get_n_sel_and_N_sel(csv_raw_in, csv_index_and_TF, idx_type_in_V2, idx_significant)
+        (n_subjected_V2, n_estimatd_V2, n_tot_V2, x_fold_V2) = get_x_fold(n_sel_V2, α_selected * N_sel_all, n_null_V2, N_null_V2_all)
+        # Fisher's exact test
+        A = n_sel_V2; B = n_mut_sel_tot - A; C = n_null_V2 - A
+        D = N_null_all - (A+B+C)
+        log_Fisher_V2 = fishers_exact_test(A, B, C, D)
+
+        n_sel_V3 = get_n_sel_and_N_sel(csv_raw_in, csv_index_and_TF, idx_type_in_V3, idx_significant)
+        (n_subjected_V3, n_estimated_V3, n_tot_V3, x_fold_V3) = get_x_fold(n_sel_V3, α_selected * N_sel_all, n_null_V3, N_null_V3_all)
+        # Fisher's exact test
+        A = n_sel_V3; B = n_mut_sel_tot - A; C = n_null_V3 - A
+        D = N_null_all - (A+B+C)
+        log_Fisher_V3 = fishers_exact_test(A, B, C, D)
+
+
+        n_sel_V4 = get_n_sel_and_N_sel(csv_raw_in, csv_index_and_TF, idx_type_in_V4, idx_significant)
+        (n_subjected_V4, n_estimated_V4, n_tot_V4, x_fold_V4) = get_x_fold(n_sel_V4, α_selected * N_sel_all, n_null_V4, N_null_V4_all)
+        # Fisher's exact test
+        A = n_sel_V4; B = n_mut_sel_tot - A; C = n_null_V4 - A
+        D = N_null_all - (A+B+C)
+        log_Fisher_V4 = fishers_exact_test(A, B, C, D)
+
+        n_sel_V5 = get_n_sel_and_N_sel(csv_raw_in, csv_index_and_TF, idx_type_in_V5, idx_significant)
+        (n_subjected_V5, n_estimated_V5, n_tot_V5, x_fold_V5) = get_x_fold(n_sel_V5, α_selected * N_sel_all, n_null_V5, N_null_V5_all)    
+        # Fisher's exact test
+        A = n_sel_V5; B = n_mut_sel_tot - A; C = n_null_V5 - A
+        D = N_null_all - (A+B+C)
+        log_Fisher_V5 = fishers_exact_test(A, B, C, D)
+
+        #  ------------ Reversion Mutations -------------  #
+        (n_sel_rev, N_sel_rev) = get_n_sel_and_N_sel_reversion(csv_raw_in, csv_index_and_TF, idx_significant)
+        (n_subjected_reversion, n_estimated_reversion, n_tot_reversion, x_fold_reversion) = get_x_fold(n_sel_rev, α_selected * N_sel_all, n_null_rev, N_null_rev_all)
+
+        # Fisher's exact test
+        A = n_sel_rev; B = n_mut_sel_tot - A; C = n_null_rev - A
+        D = N_null_rev_all - (A+B+C)
+        log_Fisher_rev = fishers_exact_test(A, B, C, D)
+
+        #  ------------ Glycan Mutations -------------  #
+        n_sel_N_add = get_n_sel_and_N_sel(csv_raw_in, csv_index_and_TF, idx_type_in_N_add, idx_significant)
+        n_sel_N_rem = get_n_sel_and_N_sel(csv_raw_in, csv_index_and_TF, idx_type_in_N_rem, idx_significant)
+        n_sel_N_sht = get_n_sel_and_N_sel(csv_raw_in, csv_index_and_TF, idx_type_in_N_sht, idx_significant)
+        #
+        (n_subjected_N_add, n_estimated_N_add, n_tot_N_add, x_fold_N_add) = get_x_fold(n_sel_N_add, α_selected * N_sel_all, n_null_N_add, N_null_N_glycan_all)
+        (n_subjected_N_rem, n_estimated_N_rem, n_tot_N_rem, x_fold_N_rem) = get_x_fold(n_sel_N_rem, α_selected * N_sel_all, n_null_N_rem, N_null_N_glycan_all)
+        (n_subjected_N_sht, n_estimated_N_sht, n_tot_N_sht, x_fold_N_sht) = get_x_fold(n_sel_N_sht, α_selected * N_sel_all, n_null_N_sht, N_null_N_glycan_all)
+        # Fisher's exact test
+        A = n_sel_N_add; B = n_mut_sel_tot - A; C = n_null_N_add - A
+        D = N_null_N_glycan_all - (A+B+C)
+        log_Fisher_N_add = fishers_exact_test(A, B, C, D)
+        # Fisher's exact test
+        A = n_sel_N_rem; B = n_mut_sel_tot - A; C = n_null_N_rem - A
+        D = N_null_N_glycan_all - (A+B+C)
+        log_Fisher_N_rem = fishers_exact_test(A, B, C, D)
+        # Fisher's exact test
+        A = n_sel_N_sht; B = n_mut_sel_tot - A; C = n_null_N_sht - A
+        D = N_null_N_glycan_all - (A+B+C)
+        log_Fisher_N_sht = fishers_exact_test(A, B, C, D)
+        # --------------------------------------------------------------- #     
+        #@printf("α:%.2f: V1:%.1f(%d,%d) V2:%.1f(%d,%d) V3:%.1f(%d,%d) V4:%.1f(%d,%d) V5:%.1f(%d,%d)\n", 
+        #        100*α_selected, x_fold_V1, n_sel_V1, n_null_V1, x_fold_V2, n_sel_V2, n_null_V2, x_fold_V3, n_sel_V3, n_null_V3, x_fold_V4, n_sel_V4, n_null_V4, x_fold_V5, n_sel_V5, n_null_V5)
+
+        push!(x_fold_LoopD_set, x_fold_LoopD); push!(n_fold_LoopD_set, n_subjected_LoopD); push!(fisher_LoopD_set, log_Fisher_LD)
+        push!(x_fold_CD4BS_set, x_fold_CD4BS); push!(n_fold_CD4BS_set, n_subjected_CD4BS); push!(fisher_CD4BS_set, log_Fisher_CD4BS)
+        push!(x_fold_V1_set, x_fold_V1); push!(n_fold_V1_set, n_subjected_V1); push!(fisher_V1_set, log_Fisher_V1)
+        push!(x_fold_V2_set, x_fold_V2); push!(n_fold_V2_set, n_subjected_V2); push!(fisher_V2_set, log_Fisher_V2)
+        push!(x_fold_V3_set, x_fold_V3); push!(n_fold_V3_set, n_subjected_V3);  push!(fisher_V3_set, log_Fisher_V3)
+        push!(x_fold_V4_set, x_fold_V4); push!(n_fold_V4_set, n_subjected_V4); push!(fisher_V4_set, log_Fisher_V4)
+        push!(x_fold_V5_set, x_fold_V5); push!(n_fold_V5_set, n_subjected_V5); push!(fisher_V5_set, log_Fisher_V5)
+
+        push!(x_fold_reversion_set, x_fold_reversion); push!(n_fold_reversion_set, n_subjected_reversion); push!(fisher_reversion_set, log_Fisher_rev)
+        push!(x_fold_N_rem_set, x_fold_N_rem); push!(n_fold_N_rem_set, n_subjected_N_rem); push!(fisher_N_rem_set, log_Fisher_N_rem)
+        push!(x_fold_N_add_set, x_fold_N_add); push!(n_fold_N_add_set, n_subjected_N_add); push!(fisher_N_add_set, log_Fisher_N_add)
+        push!(x_fold_N_sht_set, x_fold_N_sht); push!(n_fold_N_sht_set, n_subjected_N_sht); push!(fisher_N_sht_set, log_Fisher_N_sht)
+        push!(α_selected_est, α_selected)
+    end
+
+
+    x_fold_summary = [x_fold_LoopD_set; x_fold_CD4BS_set; x_fold_V1_set; x_fold_V2_set; x_fold_V3_set; x_fold_V4_set; 
+     x_fold_V5_set; x_fold_reversion_set; x_fold_N_rem_set; x_fold_N_add_set; x_fold_N_sht_set]
+    #
+    log_P = [fisher_LoopD_set; fisher_CD4BS_set; fisher_V1_set; fisher_V2_set; fisher_V3_set; fisher_V4_set; 
+     fisher_V5_set; fisher_reversion_set; fisher_N_rem_set; fisher_N_add_set; fisher_N_sht_set]
+    #
+    α_summary = [α_selected_est; α_selected_est; α_selected_est; α_selected_est; α_selected_est; α_selected_est; 
+     α_selected_est; α_selected_est; α_selected_est; α_selected_est; α_selected_est]
+    #
+    n_fold_summary = [n_fold_LoopD_set; n_fold_CD4BS_set; n_fold_V1_set; n_fold_V2_set; n_fold_V3_set; n_fold_V4_set; 
+     n_fold_V5_set; n_fold_reversion_set; n_fold_N_rem_set; n_fold_N_add_set; n_fold_N_sht_set]
+    #    
+    types_summary = [["LD" for _ in x_fold_LoopD_set]; ["CD4BS" for _ in x_fold_CD4BS_set]; 
+    ["V1" for _ in x_fold_V1_set]; ["V2" for _ in x_fold_V2_set]; ["V3" for _ in x_fold_V3_set]; ["V4" for _ in x_fold_V4_set]; 
+    ["V5" for _ in x_fold_V5_set]; ["Reversion" for _ in x_fold_reversion_set]; 
+    ["Hole" for _ in x_fold_N_rem_set]; ["Shield" for _ in x_fold_N_add_set];["Shift" for _ in x_fold_N_sht_set]];
+
+    return (x_fold_summary, log_P, α_summary, n_fold_summary, types_summary)
+    
 end;
