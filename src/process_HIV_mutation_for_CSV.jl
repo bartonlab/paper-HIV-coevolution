@@ -17,6 +17,29 @@ idx_HXB2_CD4BS = [
     collect(7587:7607);
     collect(7629:7631); 
     collect(7635:7655) ]
+
+# ------- Protein Sequence ------- #
+idx_HXB2_Pro_V1 = collect(131:156)
+idx_HXB2_Pro_V2 = collect(157:196)
+idx_HXB2_Pro_V3 = collect(296:331)
+idx_HXB2_Pro_V4 = collect(385:418)
+idx_HXB2_Pro_V5 = collect(460:470)
+idx_HXB2_Pro_LD = collect(275:283)
+idx_HXB2_Pro_MPER = collect(660:683)
+idx_HXB2_Pro_CD4BS = [
+    collect(124:127); 
+    collect(157:158);
+    collect(196:196);
+    collect(198:198);
+    collect(279:283);
+    collect(364:370);
+    collect(374:374);
+    collect(425:432);
+    collect(455:461);
+    collect(469:469); 
+    collect(471:477) ]
+
+
 # --------------------------------- CH848 Specific --------------------------------- #
 idx_HXB2_entire_gene = collect(1:9719)
 idx_HXB2_half = collect(2000:9719)
@@ -600,7 +623,6 @@ end;
 
 """ This function replace the multiple occurance of letters as wildtype to the AA of the TF sequence.  
 """
-# Example usage
 function replacing_redundant_AA_by_TF(mutation_in, mutation_TF)
     strings = copy(mutation_in)
     to_be_replaced = copy(mutation_TF);
@@ -1358,6 +1380,7 @@ function get_x_fold(vec_in, idx_sel, csv_index_and_TF, idx_type; n_null=0, N_nul
     n_sel = count(vec_in[idx_sel])
     α_sel, x_fold = 0, 0
     if(N_sel > 0) α_sel = n_sel / N_sel end 
+    #if(α_null > 0) x_fold = α_sel / α_null end
     if(α_null > 0) x_fold = α_sel / α_null end
     
     #@printf("N_sel:%d\tn_sel:%d\tN_null:%d\tn_null:%d", N_sel, n_sel, N_null, n_null)
@@ -1378,6 +1401,7 @@ function get_x_fold(n_sel, N_sel, n_null, N_null)
 end;
 
 """ get_num_of_nonsyn(csv_index_and_TF, idx_HXB2_type)
+
 """
 function get_num_of_nonsyn(csv_index_and_TF, idx_HXB2_type)
     n_nsyn_restricted, n_nsyn = 0, 0
@@ -1638,7 +1662,7 @@ function get_enrichment_and_pvalues(csv_raw_in, csv_index_and_TF, α_selected_li
     idx_type_in_N_sht = copy(csv_raw_in.N_linked_glycan_shift_fr3 .> 0 )
 
     # ------- Get the nuber of mutations assuming the random prediction (= null moodel) -------- #
-    idx_all_true = repeat([true], length(csv_raw_in.HXB2))
+    idx_all_true = repeat([true], length(csv_raw_in.HXB2_index))
     N_sel_all = get_n_sel_and_N_sel(csv_raw_in, csv_index_and_TF, idx_type_in_all, idx_all_true)
     #
     n_sel_all_LD = get_n_sel_and_N_sel(csv_raw_in, csv_index_and_TF, idx_type_in_LD, idx_all_true) # only for Fisher's exact test!
@@ -1813,4 +1837,108 @@ function get_enrichment_and_pvalues(csv_raw_in, csv_index_and_TF, α_selected_li
 
     return (x_fold_summary, log_P, α_summary, n_fold_summary, types_summary)
     
+end;
+
+
+function normalize_coefficient_AA(coefficients_MPL, coefficients_SL, q, L_poly, seq_TF, seq_ensemble, seq_TF_num)
+
+    s_normed_MPL = copy(coefficients_MPL)
+    s_normed_SL = copy(coefficients_SL);
+
+    for i in 1:L_poly
+        a = seq_TF_num[i]
+        s_normed_MPL[km.(i, 1:q, q)] .-= coefficients_MPL[km(i,a,q)]
+        s_normed_SL[km.(i, 1:q, q)] .-= coefficients_SL[km(i,a,q)]
+        set_aa_observed = unique(seq_ensemble[:, i])
+        for b in 1:q
+            if(b ∉ set_aa_observed)
+                s_normed_MPL[km(i,b,q)] = 0
+                s_normed_SL[km(i,b,q)] = 0
+            end
+        end
+    end
+    return (s_normed_MPL, s_normed_SL)
+end;
+
+function normalize_coefficient_AA(coefficients_MPL, coefficients_SL, q, L_poly, seq_TF, seq_TF_num)
+    s_normed_MPL = copy(coefficients_MPL)
+    s_normed_SL = copy(coefficients_SL);
+    for i in 1:L_poly
+        a = seq_TF_num[i]
+        s_normed_MPL[km(i, a, q)] -= coefficients_MPL[km(i,a,q)]
+        s_normed_SL[km(i, a, q)] -= coefficients_SL[km(i,a,q)]
+        for b in 1:q
+            if(s_normed_MPL[km(i, b, q)] != 0)
+                s_normed_MPL[km(i, b, q)] -= coefficients_MPL[km(i,a,q)]
+            end
+            if(s_normed_SL[km(i, b, q)] != 0)
+                s_normed_SL[km(i, b, q)] -= coefficients_SL[km(i,a,q)]
+            end
+        end
+    end
+    return (s_normed_MPL, s_normed_SL)
+end;
+
+function get_x1_AA(time_set, L_poly, q, seq_ensemble)
+    time_unique = sort(unique(time_set))
+    n_time_unique = length(time_unique)
+    x1 = zeros(n_time_unique, L_poly, q);
+
+    for i_t in 1:length(time_unique)
+        t = time_unique[i_t];
+        n_seq_at_t = count(time_set .== t)
+        seq_at_t = seq_ensemble[time_set .== t, :];
+        for n in 1:n_seq_at_t
+            for i in 1:L_poly
+                x1[i_t, i, seq_at_t[n, i]] += (1.0 / n_seq_at_t)
+            end
+        end
+    end
+    return x1
+end
+
+function get_first_detected(time_unique, x1, i_poly, a_poly_num)
+    for i_t in 1:length(time_unique)
+        if(x1[i_t, i_poly, a_poly_num]>0)
+            return time_unique[i_t]
+        end
+    end
+end;
+
+# Input hxb2_out_set, aa_out_set, seq_TF_aa, haxb2_TF
+
+function get_glycan_plus_minus_AA_seq(seq_TF_aa, haxb2_TF, hxb2_out_set, aa_out_set)
+    glycan_plus = []; glycan_minus = []
+    L_aa_temp = length(seq_TF_aa)
+    for n in 1:length(hxb2_out_set)
+        hxb2_temp, aa_temp = hxb2_out_set[n], aa_out_set[n]
+        flag_glycan_plus, flag_glycan_minus = false, false
+        idx_matched = haxb2_TF .== hxb2_temp
+        if(count(idx_matched)>0)
+            site_matched = collect(1:L_aa_temp)[idx_matched][1]
+            if( 3<= site_matched <= L_aa_temp-2)
+                seq_WT_cliped = copy(seq_TF_aa[(site_matched-2):(site_matched+2)])                
+                seq_MT_cliped = copy(seq_WT_cliped)                
+                seq_MT_cliped[3] = aa_temp
+                (flag_glycan_plus,flag_glycan_minus) = check_glycan_shield_hole_shift(seq_MT_cliped, seq_WT_cliped)
+            end
+        end
+        push!(glycan_plus, flag_glycan_plus); push!(glycan_minus, flag_glycan_minus)
+    end
+    return (glycan_plus, glycan_minus)
+end;
+
+function get_variable_site_true_false(haxb2_TF)
+    v1_set_out, v2_set_out, v3_set_out = [], [], []
+    v4_set_out, v5_set_out, LD_set_out, CD4BS_set_out = [], [], [], []
+    for x in extract_integer.(haxb2_TF)
+        push!(v1_set_out, x ∈ idx_HXB2_Pro_V1)
+        push!(v2_set_out, x ∈ idx_HXB2_Pro_V2)
+        push!(v3_set_out, x ∈ idx_HXB2_Pro_V3)
+        push!(v4_set_out, x ∈ idx_HXB2_Pro_V4)
+        push!(v5_set_out, x ∈ idx_HXB2_Pro_V5)
+        push!(LD_set_out, x ∈ idx_HXB2_Pro_LD)
+        push!(CD4BS_set_out, x ∈ idx_HXB2_Pro_CD4BS)
+    end;
+    return (v1_set_out, v2_set_out, v3_set_out, v4_set_out, v5_set_out, LD_set_out, CD4BS_set_out)
 end;

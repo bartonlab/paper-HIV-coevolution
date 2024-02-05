@@ -313,46 +313,32 @@ function get_trajectory_plot_CH505_with_glycan(csv_raw_CH505, L_fig_tot)
     for i_t in 1:n_time_max
         x1_selected[:, i_t] = csv_raw_CH505[1:n_top, Symbol("f_at_" * string( colection_time[i_t]))]
     end;
-    idx_glycan = (csv_raw_CH505.N_linked_glycan_minus_fr3 .> 0 .|| csv_raw_CH505.N_linked_glycan_plus_fr3 .> 0) .* (csv_raw_CH505.nonsynonymous .> 0) 
-    idx_CTL = [ ]
-    for n in 1:length(csv_raw_CH505.mutants_AA_fr3)
+    idx_glycan = (csv_raw_CH505.N_linked_glycan_minus_fr3 .> 0 .|| csv_raw_CH505.N_linked_glycan_plus_fr3 .> 0) .&& (csv_raw_CH505.nonsynonymous .> 0) 
+    idx_CTL = [ ]; idx_CH103 = [ ]; idx_CH235 = [ ]; idx_strain_specific = [ ]
+    for n in 1:n_top
         x = csv_raw_CH505.mutants_AA_fr3[n]
-        if( (extract_integer(x) ∈ 409:418) * (csv_raw_CH505.nonsynonymous[n]>0))
+        if( (extract_integer(x) ∈ 409:418) && (csv_raw_CH505.nonsynonymous[n]>0))
             push!(idx_CTL, true)
         else
             push!(idx_CTL, false)
         end 
+        if(csv_raw_CH505.resist_mut_CH103[n] && (csv_raw_CH505.detected_date[n] >90 ) && (csv_raw_CH505.nonsynonymous[n]>0))
+            push!(idx_CH103, true)
+        else
+            push!(idx_CH103, false)
+        end
+        if(csv_raw_CH505.resist_mut_CH235[n] && (csv_raw_CH505.nonsynonymous[n]>0))
+            push!(idx_CH235, true)
+        else
+            push!(idx_CH235, false)
+        end
+        if((csv_raw_CH505.resist_strain_specific_Abs_CH505[n] || csv_raw_CH505.common_mut_SHIV_CH505[n] ) && (csv_raw_CH505.nonsynonymous[n]>0))
+            push!(idx_strain_specific, true)
+        else
+            push!(idx_strain_specific, false)
+        end
     end
     
-    color_set = []
-    alpha_set = []
-    for n in 1:n_top
-        flag_temp = true
-        #if(csv_raw_CH505.mutants_AA_fr3[n]=="T415K")
-        if(idx_CTL[n] * (csv_raw_CH505.nonsynonymous[n]>0))
-            push!(color_set, "red"); push!(alpha_set, 1.0)
-            flag_temp = false
-        end
-        if((csv_raw_CH505.resist_strain_specific_Abs_CH505[n] || csv_raw_CH505.common_mut_SHIV_CH505[n] ) * (csv_raw_CH505.nonsynonymous[n]>0))
-            push!(color_set, "purple"); push!(alpha_set, 1.0)
-            flag_temp = false
-        end
-        if(csv_raw_CH505.resist_mut_CH235[n] * (csv_raw_CH505.nonsynonymous[n]>0))
-            push!(color_set, "skyblue"); push!(alpha_set, 1.0)
-            flag_temp = false
-        end
-        if(csv_raw_CH505.resist_mut_CH103[n] * (csv_raw_CH505.nonsynonymous[n]>0))
-            push!(color_set, "green"); push!(alpha_set, 1.0)
-            flag_temp = false
-        end
-        if((idx_glycan[n]>0) * (csv_raw_CH505.nonsynonymous[n]>0 ))
-            push!(color_set, "orange"); push!(alpha_set, 0.3)
-            flag_temp = false
-        end
-        if(flag_temp)
-            push!(color_set, "gray"); push!(alpha_set, 1.0)
-        end
-    end
     # ---------- Make a subplot ---------------- # 
     my_alpha=0.5
     x1_set_for_figures_CTL = [] 
@@ -360,25 +346,30 @@ function get_trajectory_plot_CH505_with_glycan(csv_raw_CH505, L_fig_tot)
     x1_set_for_figures_CH235 = [] 
     x1_set_for_figures_strain_specific = [] 
     x1_set_for_figures_glycan = [] 
-    
+    mutation_labels = [] 
     for n in sort(collect(1:n_top), rev=true)
-    	if(color_set[n] == "red")
+    	#if(color_set[n] == "red")
+    	if(idx_CTL[n])  
 		    push!(x1_set_for_figures_CTL, x1_selected[n, :])
 	    end
-    	if(color_set[n] == "purple")
+    	#if(color_set[n] == "purple")
+    	if(idx_strain_specific[n])
 		    push!(x1_set_for_figures_strain_specific, x1_selected[n, :])
 	    end
-    	if(color_set[n] == "skyblue")
+    	#if(color_set[n] == "skyblue")
+    	if(idx_CH235[n])
 		    push!(x1_set_for_figures_CH235, x1_selected[n, :])
 	    end
-    	if(color_set[n] == "green")
+    	#if(color_set[n] == "green")
+    	if(idx_CH103[n])
 		    push!(x1_set_for_figures_CH103, x1_selected[n, :])
 	    end
-    	if(color_set[n] == "orange")
+    	#if(color_set[n] == "orange")
+    	if(idx_glycan[n])
 		    push!(x1_set_for_figures_glycan, x1_selected[n, :])
 	    end
     end
-    p4 = Plots.plot(time_unique, 100*x1_selected[1, :], c=color_set[1], 
+    p4 = Plots.plot(
         foreground_color_legend = nothing,
         labelfontsize=fontsize_reg,
     #    xlim=(0,maximum(time_unique)+30),
@@ -396,14 +387,21 @@ function get_trajectory_plot_CH505_with_glycan(csv_raw_CH505, L_fig_tot)
     annotate!(-300, 0.3, text("Frequency (%)", :left, rotation=90, fontsize_reg))
     annotate!(900, -30, text("Days", fontsize_reg))
    
-    for n in sort(collect(2:n_top), rev=true)
-        if(color_set[n] != "gray")
-            #if(color_set[n] != "orange")
-                Plots.plot!(time_unique, 100*x1_selected[n, :], c=color_set[n], 
-                    alpha=my_alpha, legend=:false, lw=3,)
-            #else
-            #    Plots.plot!(time_unique, 100*x1_selected[n, :], c=color_set[n], alpha=alpha_set[n], legend=:false, lw=3,)
-            #end
+    for n in 1:n_top 
+        if(idx_CH103[n])
+            Plots.plot!(time_unique, 100*x1_selected[n, :], c=:green, alpha=my_alpha, legend=:false, lw=3,)
+        end
+        if(idx_CH235[n])
+            Plots.plot!(time_unique, 100*x1_selected[n, :], c=:skyblue, alpha=my_alpha, legend=:false, lw=3,)
+        end
+        if(idx_strain_specific[n])
+            Plots.plot!(time_unique, 100*x1_selected[n, :], c=:purple, alpha=my_alpha, legend=:false, lw=3,)
+        end
+        if(idx_glycan[n])
+            Plots.plot!(time_unique, 100*x1_selected[n, :], c=:orange, alpha=my_alpha, legend=:false, lw=3,)
+        end
+        if(idx_CTL[n])
+            Plots.plot!(time_unique, 100*x1_selected[n, :], c=:red, alpha=my_alpha, legend=:false, lw=3,)
         end
     end
     for x in collect(0:300:1800)
@@ -426,10 +424,12 @@ function get_selection_vs_time_plot_CH505_with_glycan(csv_raw_CH505, L_fig_tot)
     #idx_T415K_mached = [!isnothing(match(r"T415K", x)) for x in csv_raw_CH505.mutants_AA_fr3 ]
     #idx_CTL = [extract_integer(x) ∈ 409:418 for x in csv_raw_CH505.mutants_AA_fr3 ]
     idx_CTL = [ ]
+    name_mutation_CTL = []
     for n in 1:length(csv_raw_CH505.mutants_AA_fr3)
         x = csv_raw_CH505.mutants_AA_fr3[n]
         if((extract_integer(x) ∈ 409:418) * (csv_raw_CH505.nonsynonymous[n]>0) )
             push!(idx_CTL, true)
+            push!(name_mutation_CTL, x)
         else
             push!(idx_CTL, false)
         end 
@@ -443,8 +443,9 @@ function get_selection_vs_time_plot_CH505_with_glycan(csv_raw_CH505, L_fig_tot)
     fontsize_reg = Int(ceil(L_fig_tot/α_gen_sgl * pxl2pt))
     my_ms = 5
     myalpha= 0.5
-    idx = ( (csv_raw_CH505.N_linked_glycan_plus_fr3 .> 0) .|| (csv_raw_CH505.N_linked_glycan_minus_fr3 .> 0) ) .* csv_raw_CH505.nonsynonymous .> 0  
+    idx = ( (csv_raw_CH505.N_linked_glycan_plus_fr3 .> 0) .|| (csv_raw_CH505.N_linked_glycan_minus_fr3 .> 0) ) .&& (csv_raw_CH505.nonsynonymous .> 0  )
     xaxis = csv_raw_CH505.detected_date[idx]
+    name_mutation_glycan = csv_raw_CH505.mutants_AA_fr3[idx]
     Plots.scatter(xaxis, 100*csv_raw_CH505.s_MPL[idx],
         c="orange",
         m=:circle,
@@ -458,8 +459,10 @@ function get_selection_vs_time_plot_CH505_with_glycan(csv_raw_CH505, L_fig_tot)
 
     idx = csv_raw_CH505.resist_mut_CH103 .* (csv_raw_CH505.nonsynonymous .> 0  )
     xaxis = csv_raw_CH505.detected_date[idx]
+    idx1 = xaxis .> 90 
+    name_mutation_CH103 = csv_raw_CH505.mutants_AA_fr3[idx][idx1]
     my_ms =5
-    p5 = Plots.scatter!(xaxis .+ c_jitter * randn(length(xaxis)), 100*csv_raw_CH505.s_MPL[idx], 
+    p5 = Plots.scatter!(xaxis[idx1] .+ c_jitter * randn(length(xaxis[idx1])), 100*csv_raw_CH505.s_MPL[idx][idx1], 
         c="green", 
         m=:circle,
         ms = my_ms,
@@ -468,11 +471,12 @@ function get_selection_vs_time_plot_CH505_with_glycan(csv_raw_CH505, L_fig_tot)
         markerstrokewidth=0,
         subplot=1
     )
-    time_CH103_figure = copy(xaxis)
-    selection_CH103_figure = copy(csv_raw_CH505.s_MPL[idx])
+    time_CH103_figure = copy(xaxis[idx1])
+    selection_CH103_figure = copy(csv_raw_CH505.s_MPL[idx][idx1])
 
     idx = csv_raw_CH505.resist_mut_CH235 .* (csv_raw_CH505.nonsynonymous .> 0  )
     xaxis = csv_raw_CH505.detected_date[idx]
+    name_mutation_CH235 = csv_raw_CH505.mutants_AA_fr3[idx]
     Plots.scatter!(xaxis, 100*csv_raw_CH505.s_MPL[idx],
         c="skyblue", 
         label="CH235",
@@ -486,6 +490,7 @@ function get_selection_vs_time_plot_CH505_with_glycan(csv_raw_CH505, L_fig_tot)
 
     idx = (csv_raw_CH505.resist_strain_specific_Abs_CH505 .|| csv_raw_CH505.common_mut_SHIV_CH505) .* (csv_raw_CH505.nonsynonymous .> 0  )
     xaxis = csv_raw_CH505.detected_date[idx]
+    name_mutation_strain_specific = csv_raw_CH505.mutants_AA_fr3[idx]
     Plots.scatter!(xaxis, 100*csv_raw_CH505.s_MPL[idx],
         c="purple",
         m=:circle,
@@ -534,7 +539,8 @@ function get_selection_vs_time_plot_CH505_with_glycan(csv_raw_CH505, L_fig_tot)
     annotate!(870, -4.2, text("Time mutation was first observed \n(days after infection)", fontsize_reg))
     annotate!(-300, 10, text(L"\textbf{A}", :left, fontsize_label_reg))
     return (p5, time_CTL_figure, time_CH103_figure, time_CH235_figure, time_autologous_figure, time_glycan_figure,  
-		selection_CTL_figure, selection_CH103_figure, selection_CH235_figure, selection_autologous_figure, selection_glycan_figure  
+		selection_CTL_figure, selection_CH103_figure, selection_CH235_figure, selection_autologous_figure, selection_glycan_figure, 
+        name_mutation_CTL, name_mutation_CH103, name_mutation_CH235, name_mutation_strain_specific, name_mutation_glycan
     ) 
 end;
 
@@ -551,17 +557,18 @@ function get_violin_plot_CH505_with_glycan(csv_raw_CH505, L_fig_tot)
     idx_CTL = [ ]
     for n in 1:length(csv_raw_CH505.mutants_AA_fr3)
         x = csv_raw_CH505.mutants_AA_fr3[n]
-        if((extract_integer(x) ∈ 409:418) * (csv_raw_CH505.nonsynonymous[n] > 0) )
+        if((extract_integer(x) ∈ 409:418) && (csv_raw_CH505.nonsynonymous[n] > 0) )
             push!(idx_CTL, true)
         else
             push!(idx_CTL, false)
         end 
     end
-    s_res_CH103 = csv_raw_CH505.s_MPL[csv_raw_CH505.resist_mut_CH103 .* (csv_raw_CH505.nonsynonymous .> 0)]
-    s_res_CH235 = csv_raw_CH505.s_MPL[csv_raw_CH505.resist_mut_CH235 .* (csv_raw_CH505.nonsynonymous .> 0)]
-    s_res_spcfc = csv_raw_CH505.s_MPL[(csv_raw_CH505.resist_strain_specific_Abs_CH505 .|| csv_raw_CH505.common_mut_SHIV_CH505) .* (csv_raw_CH505.nonsynonymous .> 0)];
-    s_res_glycan = csv_raw_CH505.s_MPL[(csv_raw_CH505.N_linked_glycan_minus_fr3 .> 0 .|| csv_raw_CH505.N_linked_glycan_plus_fr3 .> 0) .* (csv_raw_CH505.nonsynonymous .> 0) ];
-    s_res_CTL = csv_raw_CH505.s_MPL[idx_CTL .* (csv_raw_CH505.nonsynonymous .> 0) ];
+    idx_CTL = Bool.(idx_CTL)
+    s_res_CH103 = csv_raw_CH505.s_MPL[csv_raw_CH505.resist_mut_CH103 .&& (csv_raw_CH505.nonsynonymous .> 0) .&& (csv_raw_CH505.detected_date .> 90)]
+    s_res_CH235 = csv_raw_CH505.s_MPL[csv_raw_CH505.resist_mut_CH235 .&& (csv_raw_CH505.nonsynonymous .> 0)]
+    s_res_spcfc = csv_raw_CH505.s_MPL[(csv_raw_CH505.resist_strain_specific_Abs_CH505 .|| csv_raw_CH505.common_mut_SHIV_CH505) .&& (csv_raw_CH505.nonsynonymous .> 0)];
+    s_res_glycan = csv_raw_CH505.s_MPL[(csv_raw_CH505.N_linked_glycan_minus_fr3 .> 0 .|| csv_raw_CH505.N_linked_glycan_plus_fr3 .> 0) .&& (csv_raw_CH505.nonsynonymous .> 0) ];
+    s_res_CTL = csv_raw_CH505.s_MPL[idx_CTL];
 
     v1 = 100*s_res_spcfc; n1=length(v1)
     v2 = 100*s_res_CH235; n2=length(v2)
@@ -1542,7 +1549,8 @@ function get_trajectory_plot_CH848_with_glycan(csv_raw_CH848, L_fig_tot)
     bool_specific_Abs = []; bool_DH475 = []; bool_DH272 = []; bool_DH270 = []; bool_glycan = []
     for n in 1:n_top
         #flag_temp = true
-        if((csv_raw_CH848.resist_strain_specific_Abs_CH848[n] || csv_raw_CH848.common_mut_SHIV_CH848[n]) * (csv_raw_CH848.nonsynonymous[n]>0)) 
+        #if((csv_raw_CH848.resist_strain_specific_Abs_CH848[n] || csv_raw_CH848.common_mut_SHIV_CH848[n]) * (csv_raw_CH848.nonsynonymous[n]>0)) 
+        if((csv_raw_CH848.resist_strain_specific_Abs_CH848[n] || csv_raw_CH848.common_mut_SHIV_CH848[n]) && (csv_raw_CH848.nonsynonymous[n]>0)) 
             #push!(color_set, "purple"); push!(alpha_set, 1.0)
             push!(bool_specific_Abs, true)
             #flag_temp = false
@@ -1551,7 +1559,7 @@ function get_trajectory_plot_CH848_with_glycan(csv_raw_CH848, L_fig_tot)
         end
 
         #if((csv_raw_CH848.resist_mut_DH475[n] && csv_raw_CH848.detected_date[n] > 300)  * (csv_raw_CH848.nonsynonymous[n]>0))
-        if((csv_raw_CH848.resist_mut_DH475[n] && csv_raw_CH848.detected_date[n] > 300)  * (csv_raw_CH848.nonsynonymous[n]>0))
+        if((csv_raw_CH848.resist_mut_DH475[n] && csv_raw_CH848.detected_date[n] > 300) && (csv_raw_CH848.nonsynonymous[n]>0))
             #push!(color_set, "cyan"); push!(alpha_set, 1.0)
             #flag_temp = false
             push!(bool_DH475, true)
@@ -1559,8 +1567,8 @@ function get_trajectory_plot_CH848_with_glycan(csv_raw_CH848, L_fig_tot)
             push!(bool_DH475, false)
         end
 
-        #if((csv_raw_CH848.resist_mut_DH272[n] && csv_raw_CH848.detected_date[n] > 300)  * (csv_raw_CH848.nonsynonymous[n]>0) )
-        if((csv_raw_CH848.resist_mut_DH272[n]) && (csv_raw_CH848.nonsynonymous[n]>0) )
+        if((csv_raw_CH848.resist_mut_DH272[n] && csv_raw_CH848.detected_date[n] > 300) && (csv_raw_CH848.nonsynonymous[n]>0) )
+        #if((csv_raw_CH848.resist_mut_DH272[n]) && (csv_raw_CH848.nonsynonymous[n]>0) )
             #push!(color_set, "skyblue"); push!(alpha_set, 1.0)
             #flag_temp = false
             push!(bool_DH272, true)
@@ -1568,8 +1576,8 @@ function get_trajectory_plot_CH848_with_glycan(csv_raw_CH848, L_fig_tot)
             push!(bool_DH272, false)
         end
 
-        #if((csv_raw_CH848.resist_mut_DH270[n] && csv_raw_CH848.detected_date[n] > 900)  * (csv_raw_CH848.nonsynonymous[n]>0 ) )
-        if((csv_raw_CH848.resist_mut_DH270[n]) && (csv_raw_CH848.nonsynonymous[n]>0 ) )
+        if((csv_raw_CH848.resist_mut_DH270[n] && csv_raw_CH848.detected_date[n] > 900) && (csv_raw_CH848.nonsynonymous[n]>0 ) )
+        #if((csv_raw_CH848.resist_mut_DH270[n]) && (csv_raw_CH848.nonsynonymous[n]>0 ) )
             #push!(color_set, "green"); push!(alpha_set, 1.0)
             #flag_temp = false
             push!(bool_DH270, true)
@@ -1585,9 +1593,6 @@ function get_trajectory_plot_CH848_with_glycan(csv_raw_CH848, L_fig_tot)
         else
             push!(bool_glycan, false)
         end
-        if(flag_temp)
-            push!(color_set, "gray"); push!(alpha_set, 1.0)
-        end
     end
     
     # ---------- Make a subplot ---------------- # 
@@ -1599,20 +1604,25 @@ function get_trajectory_plot_CH848_with_glycan(csv_raw_CH848, L_fig_tot)
     x1_set_for_figures_strain_specific = [] 
 
     for n in sort(collect(1:n_top), rev=true)
-        if(color_set[n] == "purple")
+        #if(color_set[n] == "purple")
+        if(bool_specific_Abs[n])
                 push!(x1_set_for_figures_strain_specific, x1_selected[n, :])
         end
-        if(color_set[n] == "skyblue")
+        #if(color_set[n] == "skyblue")
+        if(bool_DH272[n])
                 push!(x1_set_for_figures_DH272, x1_selected[n, :])
         end
-        if(color_set[n] == "green")
+        #if(color_set[n] == "green")
+        if(bool_DH270[n])
                 push!(x1_set_for_figures_DH270, x1_selected[n, :])
         end
-        if(color_set[n] == "orange")
+        #if(color_set[n] == "orange")
+        if(bool_glycan[n])
             push!(x1_set_for_figures_glycan, x1_selected[n, :])
-    end
-        if(color_set[n] == "cyan")
-                push!(x1_set_for_figures_DH475, x1_selected[n, :])
+        end
+        #if(color_set[n] == "cyan")
+        if(bool_DH475[n])
+            push!(x1_set_for_figures_DH475, x1_selected[n, :])
         end
     end
 
@@ -1633,9 +1643,21 @@ function get_trajectory_plot_CH848_with_glycan(csv_raw_CH848, L_fig_tot)
     annotate!(-250, 0.9, text("Frequency (%)", :left, rotation=90, fontsize_reg))
     annotate!(870, -30, text("Days", :left, fontsize_reg))
     for n in sort(collect(2:n_top), rev=true)
-        if(color_set[n] != "gray" && color_set[n] != "red")
-
-            Plots.plot!(time_unique, 100*x1_selected[n, :], c=color_set[n], alpha=my_alpha, legend=:false, lw=3,)
+        #if(color_set[n] != "gray" && color_set[n] != "red") Plots.plot!(time_unique, 100*x1_selected[n, :], c=color_set[n], alpha=my_alpha, legend=:false, lw=3,) end
+        if(bool_DH270[n]) 
+            Plots.plot!(time_unique, 100*x1_selected[n, :], c=:green, alpha=my_alpha, legend=:false, lw=3,) 
+        end
+        if(bool_DH272[n]) 
+            Plots.plot!(time_unique, 100*x1_selected[n, :], c=:skyblue, alpha=my_alpha, legend=:false, lw=3,) 
+        end
+        if(bool_DH475[n]) 
+            Plots.plot!(time_unique, 100*x1_selected[n, :], c=:cyan, alpha=my_alpha, legend=:false, lw=3,) 
+        end
+        if(bool_specific_Abs[n]) 
+            Plots.plot!(time_unique, 100*x1_selected[n, :], c=:purple, alpha=my_alpha, legend=:false, lw=3,) 
+        end
+        if(bool_glycan[n]) 
+            Plots.plot!(time_unique, 100*x1_selected[n, :], c=:orange, alpha=my_alpha, legend=:false, lw=3,) 
         end
     end
     for x in collect(0:300:1800)
@@ -1659,7 +1681,8 @@ function get_selection_vs_time_plot_CH848_with_glycan(csv_raw_CH848, L_fig_tot)
     my_ms = 5
     myalpha= 0.5
     #
-    idx = (csv_raw_CH848.N_linked_glycan_minus_fr3 .> 0 .|| csv_raw_CH848.N_linked_glycan_plus_fr3 .> 0) .* (csv_raw_CH848.nonsynonymous .> 0)
+    idx = (csv_raw_CH848.N_linked_glycan_minus_fr3 .> 0 .|| csv_raw_CH848.N_linked_glycan_plus_fr3 .> 0) .&& (csv_raw_CH848.nonsynonymous .> 0)
+    mutation_name_glycan = csv_raw_CH848.mutants_AA_fr3[idx]
     xaxis = csv_raw_CH848.detected_date[idx] 
     p5 = Plots.scatter(
         xaxis, 100*csv_raw_CH848.s_MPL[idx],
@@ -1674,7 +1697,8 @@ function get_selection_vs_time_plot_CH848_with_glycan(csv_raw_CH848, L_fig_tot)
     time_glycan_figure = copy(xaxis)
     selection_glycan_figure = copy(csv_raw_CH848.s_MPL[idx])
     #
-    idx = (csv_raw_CH848.resist_strain_specific_Abs_CH848 .|| csv_raw_CH848.common_mut_SHIV_CH848) .* (csv_raw_CH848.nonsynonymous .> 0)
+    idx = (csv_raw_CH848.resist_strain_specific_Abs_CH848 .|| csv_raw_CH848.common_mut_SHIV_CH848) .&& (csv_raw_CH848.nonsynonymous .> 0)
+    mutation_name_strain_specific = csv_raw_CH848.mutants_AA_fr3[idx]
     xaxis = csv_raw_CH848.detected_date[idx]
     Plots.scatter!(xaxis, 100*csv_raw_CH848.s_MPL[idx],
         c="purple",
@@ -1687,9 +1711,10 @@ function get_selection_vs_time_plot_CH848_with_glycan(csv_raw_CH848, L_fig_tot)
     time_autologous_figure = copy(xaxis)
     selection_autologous_figure = copy(csv_raw_CH848.s_MPL[idx])
     #   
-    idx = csv_raw_CH848.resist_mut_DH475 .* (csv_raw_CH848.nonsynonymous .> 0 )
+    idx = csv_raw_CH848.resist_mut_DH475 .&& (csv_raw_CH848.nonsynonymous .> 0 )
     xaxis = csv_raw_CH848.detected_date[idx]
     idx1 = xaxis .> 300 # DH475 was first detecable after a year after
+    mutation_name_DH475 = csv_raw_CH848.mutants_AA_fr3[idx][idx1]
     Plots.scatter!(xaxis[idx1], 100*csv_raw_CH848.s_MPL[idx][idx1],
         c="cyan", 
         label="DH475",
@@ -1698,12 +1723,13 @@ function get_selection_vs_time_plot_CH848_with_glycan(csv_raw_CH848, L_fig_tot)
         ms = my_ms,
         markerstrokewidth=0,
         subplot=1)
-    time_DH475_figure = copy(xaxis)
-    selection_DH475_figure = copy(csv_raw_CH848.s_MPL[idx])
+    time_DH475_figure = copy(xaxis[idx1])
+    selection_DH475_figure = copy(csv_raw_CH848.s_MPL[idx][idx1])
     #
-    idx = csv_raw_CH848.resist_mut_DH272 .* (csv_raw_CH848.nonsynonymous .> 0 )
+    idx = csv_raw_CH848.resist_mut_DH272 .&& (csv_raw_CH848.nonsynonymous .> 0 )
     xaxis = csv_raw_CH848.detected_date[idx]
     idx1 = xaxis .> 300 # DH272 was first detecable after a year after
+    mutation_name_DH272 = csv_raw_CH848.mutants_AA_fr3[idx][idx1]
     Plots.scatter!(xaxis[idx1], 100*csv_raw_CH848.s_MPL[idx][idx1],
         c="skyblue", 
         label="DH272",
@@ -1712,12 +1738,13 @@ function get_selection_vs_time_plot_CH848_with_glycan(csv_raw_CH848, L_fig_tot)
         ms = my_ms,
         markerstrokewidth=0,
         subplot=1)
-    time_DH272_figure = copy(xaxis)
-    selection_DH272_figure = copy(csv_raw_CH848.s_MPL[idx])
+    time_DH272_figure = copy(xaxis[idx1])
+    selection_DH272_figure = copy(csv_raw_CH848.s_MPL[idx][idx1])
     #
-    idx = csv_raw_CH848.resist_mut_DH270 .* (csv_raw_CH848.nonsynonymous .> 0 )
+    idx = csv_raw_CH848.resist_mut_DH270 .&& (csv_raw_CH848.nonsynonymous .> 0 )
     xaxis = csv_raw_CH848.detected_date[idx]
     idx1 = xaxis .> 900 # matured DH270 was detectable after 3.5 years after 
+    mutation_name_DH270 = csv_raw_CH848.mutants_AA_fr3[idx][idx1]
     my_ms =5
     Plots.scatter!(xaxis, 
         xaxis[idx1], 100*csv_raw_CH848.s_MPL[idx][idx1], 
@@ -1744,8 +1771,8 @@ function get_selection_vs_time_plot_CH848_with_glycan(csv_raw_CH848, L_fig_tot)
         legendfontsize=fontsize_reg-1,
         tickfontsize=fontsize_reg,
     );
-    time_DH270_figure = copy(xaxis)
-    selection_DH270_figure = copy(csv_raw_CH848.s_MPL[idx])
+    time_DH270_figure = copy(xaxis[idx1])
+    selection_DH270_figure = copy(csv_raw_CH848.s_MPL[idx][idx1])
 
     
 
@@ -1758,7 +1785,8 @@ function get_selection_vs_time_plot_CH848_with_glycan(csv_raw_CH848, L_fig_tot)
     annotate!(-350, 10, text(L"\textbf{A}", :left, fontsize_label_reg));
 
     return (p5, time_DH270_figure, time_DH272_figure, time_DH475_figure, time_autologous_figure, time_glycan_figure,  
-                    selection_DH270_figure, selection_DH272_figure, selection_DH475_figure, selection_autologous_figure, selection_glycan_figure) 
+                    selection_DH270_figure, selection_DH272_figure, selection_DH475_figure, selection_autologous_figure, selection_glycan_figure, 
+                    mutation_name_DH270, mutation_name_DH272, mutation_name_DH475, mutation_name_strain_specific, mutation_name_glycan) 
 end;
 
 function get_violin_plot_CH848_with_glycan(csv_raw_CH848, L_fig_tot)
@@ -1768,11 +1796,11 @@ function get_violin_plot_CH848_with_glycan(csv_raw_CH848, L_fig_tot)
     myalpha= 0.3
     my_ms = 6
 
-    s_res_DH270 = csv_raw_CH848.s_MPL[csv_raw_CH848.resist_mut_DH270 .* (csv_raw_CH848.detected_date .> 900) .* (csv_raw_CH848.nonsynonymous .> 0 )]
-    s_res_DH272 = csv_raw_CH848.s_MPL[csv_raw_CH848.resist_mut_DH272 .* (csv_raw_CH848.detected_date .> 300) .* (csv_raw_CH848.nonsynonymous .> 0 )]
-    s_res_DH475 = csv_raw_CH848.s_MPL[csv_raw_CH848.resist_mut_DH475 .* (csv_raw_CH848.detected_date .> 300) .* (csv_raw_CH848.nonsynonymous .> 0 )]
-    s_res_spcfc = csv_raw_CH848.s_MPL[(csv_raw_CH848.resist_strain_specific_Abs_CH848 .|| csv_raw_CH848.common_mut_SHIV_CH848) .* (csv_raw_CH848.nonsynonymous .> 0 )];
-    s_res_glycan = csv_raw_CH848.s_MPL[(csv_raw_CH848.N_linked_glycan_minus_fr3 .> 0 .|| csv_raw_CH848.N_linked_glycan_plus_fr3 .> 0) .* (csv_raw_CH848.nonsynonymous .> 0 )];
+    s_res_DH270 = csv_raw_CH848.s_MPL[csv_raw_CH848.resist_mut_DH270 .&& (csv_raw_CH848.detected_date .> 900) .&& (csv_raw_CH848.nonsynonymous .> 0 )]
+    s_res_DH272 = csv_raw_CH848.s_MPL[csv_raw_CH848.resist_mut_DH272 .&& (csv_raw_CH848.detected_date .> 300) .&& (csv_raw_CH848.nonsynonymous .> 0 )]
+    s_res_DH475 = csv_raw_CH848.s_MPL[csv_raw_CH848.resist_mut_DH475 .&& (csv_raw_CH848.detected_date .> 300) .&& (csv_raw_CH848.nonsynonymous .> 0 )]
+    s_res_spcfc = csv_raw_CH848.s_MPL[(csv_raw_CH848.resist_strain_specific_Abs_CH848 .|| csv_raw_CH848.common_mut_SHIV_CH848) .&& (csv_raw_CH848.nonsynonymous .> 0 )];
+    s_res_glycan = csv_raw_CH848.s_MPL[(csv_raw_CH848.N_linked_glycan_minus_fr3 .> 0 .|| csv_raw_CH848.N_linked_glycan_plus_fr3 .> 0) .&& (csv_raw_CH848.nonsynonymous .> 0 )];
 
     v1 = 100*s_res_glycan; n1=length(v1)
     v2 = 100*s_res_spcfc; n2=length(v2)
