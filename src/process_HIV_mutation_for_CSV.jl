@@ -245,7 +245,8 @@ end;
     Consider the full genetic background comparing the set of consective 5 codons between before and after the mutaions. 
     However, this method consider all possible combination between the before and after the mutations; the possible pair of sequence should be considered to get more accurate glycan dynamics. 
 """
-unction get_possible_glycan_naive(i_mut, i_raw, date_mut_set, NUC, a_MT_set, n_poly_idx_max,  collected_time, collected_time_unique, idx_poly, idx_only_poly, n_time_max, seq_TF, csv_index_and_TF, data_num, this_frame_set, this_gene_set)
+function get_possible_glycan_naive(i_mut, i_raw, date_mut_set, NUC, a_MT_set, n_poly_idx_max,  collected_time, collected_time_unique, 
+        idx_poly, idx_only_poly, n_time_max, seq_TF, csv_index_and_TF, data_num, this_frame_set, this_gene_set)
 #    idx_hxb2 = parse(Int, csv_index_and_TF.HXB2[i_raw])
     idx_hxb2 = parse(Int, match(r"(\d+)", csv_index_and_TF.HXB2[i_raw]).match)
     
@@ -316,8 +317,6 @@ unction get_possible_glycan_naive(i_mut, i_raw, date_mut_set, NUC, a_MT_set, n_p
                     end
                     aa_set_before = unique(aa_set_before)
                     aa_set_after = unique(aa_set_after)
-                    @show aa_set_before
-                    @show aa_set_after
 
                     for x in aa_set_after
                         x_sp = split(x, "")
@@ -340,7 +339,8 @@ end;
     Unlike the previous version, named get_possible_glycan_naive, this function considers the possible pair of sequence to get more accurate glycan dynamics.
     To this end, we import the paired sequences from the mutaion detection function.
 """
-function get_possible_glycan(i_mut, i_raw, date_mut_set, NUC, a_MT_set, n_poly_idx_max,  collected_time, collected_time_unique, idx_poly, idx_only_poly, n_time_max, seq_TF, csv_index_and_TF, data_num, this_frame_set, this_gene_set)
+function get_possible_glycan(i_mut, i_raw, date_mut_set, NUC, a_MT_set, n_poly_idx_max,  collected_time, collected_time_unique, 
+            idx_poly, idx_only_poly, n_time_max, seq_TF, csv_index_and_TF, data_num, this_frame_set, this_gene_set, set_of_mutation_pairs)
 #    idx_hxb2 = parse(Int, csv_index_and_TF.HXB2[i_raw])
     idx_hxb2 = parse(Int, match(r"(\d+)", csv_index_and_TF.HXB2[i_raw]).match)
     
@@ -372,9 +372,13 @@ function get_possible_glycan(i_mut, i_raw, date_mut_set, NUC, a_MT_set, n_poly_i
             data_after_mut_extend[i, idx_only_poly] = [NUC[a+1] for a in data_after_mut[i, :]]
         end
 
+        # The set of the mutation pairs, set_of_mutation_pairs contains push!(set_of_mutation_pairs_temp, (date_mut, date_earlier, i_before_temp, i_after_temp)) 
+
         # Don't consider the edges
         if( 7<=i_raw && (i_raw + i_raw%3 + 2*3) <= n_poly_idx_max) 
             for i_fr in 1:length(this_frame_set)
+                set_of_mutation_pairs_temp = set_of_mutation_pairs[i_fr]
+                
                 codon_location_set = [] # that should contains the 5 types of sites. 
                 push!(codon_location_set, )
                 frame_temp = this_frame_set[i_fr];
@@ -387,6 +391,7 @@ function get_possible_glycan(i_mut, i_raw, date_mut_set, NUC, a_MT_set, n_poly_i
                 for k in -2:1:2 push!(codon_location_set, codon_location .+ 3*k) end     
             
                 if(minimum(codon_location)>0 && maximum(codon_location)<=length(seq_TF))
+                    """
                     for n in 1:n_before
                         aa_set_temp = []
                         for k in 1:5
@@ -423,6 +428,32 @@ function get_possible_glycan(i_mut, i_raw, date_mut_set, NUC, a_MT_set, n_poly_i
                             if(n_glycan_shift_minus_temp) n_minus_glycan[frame_temp] += 1 end
                             if(n_glycan_shift_minus_temp * n_glycan_shift_plus_temp) n_glycan_shift[frame_temp] += 1 end
                         end
+                    end
+                    """
+                    mutation_pairs_unique = []
+                    for pair_set in set_of_mutation_pairs_temp
+                        date_mut, date_earlier, i_before_temp, i_after_temp = pair_set
+                        aa_set_after_temp = []; aa_set_before_temp = []
+                        for k in 1:5
+                            x_bf = join(data_before_mut_extend[i_before_temp, codon_location_set[k]])
+                            y_bf = haskey(NUC2AA, x_bf) ? NUC2AA[x_bf] : "-"
+                            push!(aa_set_before_temp, y_bf)
+
+                            x_af = join(data_after_mut_extend[i_after_temp, codon_location_set[k]])
+                            y_af = haskey(NUC2AA, x_af) ? NUC2AA[x_af] : "-"
+                            push!(aa_set_after_temp, y_af)
+                        end 
+                        push!(mutation_pairs_unique, (join(aa_set_before_temp), join(aa_set_after_temp)))
+                    end
+                   
+                    for pair_set in unique(mutation_pairs_unique)
+                        x, y = pair_set
+                        #@printf("bf:%s , af:%s\n", x, y)
+                        x_sp = split(x, ""); y_sp = split(y, "")
+                        (n_glycan_shift_plus_temp, n_glycan_shift_minus_temp) = check_glycan_shield_hole_shift(x_sp, y_sp)
+                        if(n_glycan_shift_plus_temp) n_plus_glycan[frame_temp] += 1 end
+                        if(n_glycan_shift_minus_temp) n_minus_glycan[frame_temp] += 1 end
+                        if(n_glycan_shift_minus_temp * n_glycan_shift_plus_temp) n_glycan_shift[frame_temp] += 1 end
                     end
                 end
             end
@@ -507,13 +538,13 @@ function Make_combination_of_mutations_with_genetic_background_w_glycan(csv_inde
     mutant_date_found = []
     
     mutant_gene = [[] for _ in 1:3]
-    mutant_types_set_nuc = [[] for _ in 1:3]
-    mutant_types_set_nuc_simple = [[] for _ in 1:3]
-    mutant_types_set_AA = [[] for _ in 1:3]
+    mutant_types_set_nuc = [[] for _ in 1:3]; mutant_types_set_nuc_naive = [[] for _ in 1:3]
+    mutant_types_set_nuc_simple = [[] for _ in 1:3]; mutant_types_set_nuc_simple_naive = [[] for _ in 1:3]
+    mutant_types_set_AA = [[] for _ in 1:3]; mutant_types_set_AA_naive = [[] for _ in 1:3]
     
-    plus_glycan_set = [[] for _ in 1:3];
-    minus_glycan_set = [[] for _ in 1:3];
-    shifted_glycan_set = [[] for _ in 1:3]
+    plus_glycan_set = [[] for _ in 1:3]; plus_glycan_set_naive = [[] for _ in 1:3];
+    minus_glycan_set = [[] for _ in 1:3]; minus_glycan_set_naive = [[] for _ in 1:3];
+    shifted_glycan_set = [[] for _ in 1:3]; shifted_glycan_set_naive = [[] for _ in 1:3]
     n_poly_idx_max = length(poly_idx) 
     for i_raw in 1:n_poly_idx_max
         if(poly_idx[i_raw] != "NA")
@@ -534,7 +565,8 @@ function Make_combination_of_mutations_with_genetic_background_w_glycan(csv_inde
                 a_mut = NUC[a_MT_set[i_mut]+1]
                 
                 # --- Get the possible mutation at the site fully considering the genetic backgroud.  --- #
-                (date_found, this_gene_set_out, mutation_tot_string_nuc_set_out, mutation_tot_string_nuc_simple_set_out, mutation_tot_string_AA_set_out) = get_possible_mutation_AA_and_NUC(
+                (date_found, this_gene_set_out, mutation_tot_string_nuc_set_out, mutation_tot_string_nuc_simple_set_out, 
+                mutation_tot_string_AA_set_out, set_of_mutation_pairs) = get_possible_mutation_AA_and_NUC(
                     i_mut, i_raw, idx_hxb2, date_mut_set, NUC, a_MT_set, a_WT, n_poly_idx_max, 
                     collected_time, collected_time_unique, idx_poly, idx_only_poly, n_time_max, 
                     seq_TF, csv_index_and_TF, data_num, this_frame_set, this_gene_set)
@@ -558,22 +590,37 @@ function Make_combination_of_mutations_with_genetic_background_w_glycan(csv_inde
                     push!(mutant_types_set_nuc[i_fr], mutation_tot_string_nuc_set_out[i_fr]) 
                     push!(mutant_types_set_nuc_simple[i_fr], mutation_tot_string_nuc_simple_set_out[i_fr])
                     push!(mutant_types_set_AA[i_fr], mutation_tot_string_AA_set_out[i_fr])
-                end
 
-                (n_plus_glycan_set_out, n_minus_glycan_set_out, n_glycan_shift_set_out) = get_possible_glycan(i_mut, i_raw, date_mut_set, NUC, a_MT_set, n_poly_idx_max, collected_time, 
+                    push!(mutant_types_set_nuc_naive[i_fr], mutation_tot_string_nuc_set_out_naive[i_fr]) 
+                    push!(mutant_types_set_nuc_simple_naive[i_fr], mutation_tot_string_nuc_simple_set_out_naive[i_fr])
+                    push!(mutant_types_set_AA_naive[i_fr], mutation_tot_string_AA_set_out_naive[i_fr])
+                end
+                
+                # This is a naive method to detect the glycan alter mutaions without uisn ght prelearned information fromt the function detect the mutaions.
+                (n_plus_glycan_set_out_naive, n_minus_glycan_set_out_naive, n_glycan_shift_set_out_naive) = get_possible_glycan_naive(i_mut, i_raw, date_mut_set, NUC, a_MT_set, n_poly_idx_max, collected_time, 
                     collected_time_unique, idx_poly, idx_only_poly, n_time_max, seq_TF, csv_index_and_TF, data_num, this_frame_set, this_gene_set)
+                
+                # Unlike the previous method, this function consider the result of the mutation detection and feeds the possible pairs of sequences.
+                (n_plus_glycan_set_out, n_minus_glycan_set_out, n_glycan_shift_set_out) = get_possible_glycan(i_mut, i_raw, date_mut_set, NUC, a_MT_set, n_poly_idx_max, collected_time, 
+                    collected_time_unique, idx_poly, idx_only_poly, n_time_max, seq_TF, csv_index_and_TF, data_num, this_frame_set, this_gene_set, set_of_mutation_pairs)
                 
                 for i_fr in 1:3 
                     push!(plus_glycan_set[i_fr], n_plus_glycan_set_out[i_fr])
                     push!(minus_glycan_set[i_fr], n_minus_glycan_set_out[i_fr])
                     push!(shifted_glycan_set[i_fr], n_glycan_shift_set_out[i_fr])
+                    
+                    push!(plus_glycan_set_naive[i_fr], n_plus_glycan_set_out_naive[i_fr])
+                    push!(minus_glycan_set_naive[i_fr], n_minus_glycan_set_out_naive[i_fr])
+                    push!(shifted_glycan_set_naive[i_fr], n_glycan_shift_set_out_naive[i_fr])
                 end
                 
             end # eif(!(i_raw%3>0 && .... x)) # to avoid bounding error
         end # if(poly_idx[i_raw] != "NA")
     end #for of i_raw
     return (mutant_hxb2, mutant_nuc, mutant_date_found, mutant_gene, 
-            mutant_types_set_AA, mutant_types_set_nuc, mutant_types_set_nuc_simple, plus_glycan_set, minus_glycan_set, shifted_glycan_set)
+            mutant_types_set_AA, mutant_types_set_nuc, mutant_types_set_nuc_simple, plus_glycan_set, minus_glycan_set, shifted_glycan_set, 
+            mutant_types_set_AA_naive, mutant_types_set_nuc_naive, mutant_types_set_nuc_simple_naive, plus_glycan_set_naive, minus_glycan_set_naive, shifted_glycan_set_naive 
+            )
 end;
 
 
@@ -754,7 +801,10 @@ function replacing_redundant_AA_by_TF(mutation_in, mutation_TF)
     return output_letters
 end;
 
-
+""" This function identifies the mutations fully considering the genetic background. 
+    This function also retunrs the pair of seuqences that are likely mutated, and can be used for the glycan-involved mutations identificaiton
+    The following process depends on the speicific polymorphic site and specific mutation in nucleotide that differ from the TF's nuc. 
+"""
 function get_possible_mutation_AA_and_NUC(i_mut, i_raw, idx_hxb2, date_mut_set, NUC, a_MT_set, a_WT, n_poly_idx_max, 
             collected_time, collected_time_unique, idx_poly, idx_only_poly, n_time_max, seq_TF, csv_index_and_TF, data_num, this_frame_set, this_gene_set)
     date_found = date_mut_set[i_mut]
@@ -771,11 +821,13 @@ function get_possible_mutation_AA_and_NUC(i_mut, i_raw, idx_hxb2, date_mut_set, 
     # this set shouldn't be empby because this site is polymorphic
     data_after_mut = copy(data_after_mut[nuc_at_idx_poly .== a_MT_set[i_mut] , :]) 
     data_before_mut = []
+    date_earlier = -1
     if(date_mut>collected_time_unique[1])                
         n_time = collect(1:n_time_max)[collected_time_unique .== date_mut]
         date_earlier = collected_time_unique[n_time .- 1]
         data_before_mut = copy(data_num[collected_time .== date_earlier, :])
     else
+        date_earlier = date_mut
         data_before_mut = copy(data_after_mut) # mutation took place at the earliest time
     end
     n_after = size(data_after_mut,1)
@@ -791,8 +843,12 @@ function get_possible_mutation_AA_and_NUC(i_mut, i_raw, idx_hxb2, date_mut_set, 
     # -- From here need to change the code and consider the difference of frames. --#
 
     this_gene = ""; mutation_tot_string_nuc = ""
-    mutation_tot_string_nuc_simple = ""; mutation_tot_string_AA = ""        
+    mutation_tot_string_nuc_simple = ""; mutation_tot_string_AA = ""
+    
+    set_of_mutation_pairs = [] # This set contains the (date, sequence id) for each pairs and for each frames: (frame, date1, date2, seq_id_1, seq_id_2) 
+    # date_mut, date_earlier 
     for i_fr in 1:length(this_frame_set)
+        set_of_mutation_pairs_temp = []
         frame_temp = this_frame_set[i_fr];
         this_gene_set_out[frame_temp] = this_gene_set[i_fr]        
         num_nuc, i_AA_set, gene_check = map_numNUC_to_numAA(idx_hxb2, frame_temp)
@@ -847,19 +903,37 @@ function get_possible_mutation_AA_and_NUC(i_mut, i_raw, idx_hxb2, date_mut_set, 
             for i_before in 1:len_codon_before
                 x = codon_set_tot_before[i_before]
                 x_split = split(x, "")
+                seq_idx_set_before = collect(1:n_before)[x .== codon_set_tot_before_original] 
                 for i_after in 1:len_codon_after
                     y = codon_set_tot_after[i_after]
                     y_split = split(y, "")
+                    seq_idx_set_after = collect(1:n_after)[y .== codon_set_tot_after_original]
                     hamming_dist = sum( 1 .- kr.(x_split, y_split))
                     if(hamming_dist == 1)
                         # keep trucking paired/non-paired mutations
                         paired_before[i_before] += 1
                         paired_after[i_after] += 1
                         table_paired[i_before, i_after] = true
+                        for i_before_temp in seq_idx_set_before
+                            for i_after_temp in seq_idx_set_after
+                                push!(set_of_mutation_pairs_temp, (date_mut, date_earlier, i_before_temp, i_after_temp))
+                            end
+                        end
+                    end
+                    # IF previous mutation is gap, then accept any mutations except for gap itself.
+                    if(x=="---" && y!="---")
+                        for i_before_temp in seq_idx_set_before
+                            for i_after_temp in seq_idx_set_after
+                                push!(set_of_mutation_pairs_temp, (date_mut, date_earlier, i_before_temp, i_after_temp))
+                            end
+                        end
                     end
                 end
             end
+            push!(set_of_mutation_pairs, set_of_mutation_pairs_temp)
+
             # This table will be used if cannot make the pair of mutation in between two time steps. 
+            # This can be turned off if we want to restrict the mutations between different time steps.
             table_paired_after = falses(len_codon_after, len_codon_after)
             for i_after in 1:len_codon_after
                 x = codon_set_tot_after[i_after]
@@ -975,7 +1049,7 @@ function get_possible_mutation_AA_and_NUC(i_mut, i_raw, idx_hxb2, date_mut_set, 
         end
     
     return (date_found, this_gene_set_out, mutation_tot_string_nuc_set_out, 
-        mutation_tot_string_nuc_simple_set_out, mutation_tot_string_AA_set_out) 
+        mutation_tot_string_nuc_simple_set_out, mutation_tot_string_AA_set_out, set_of_mutation_pairs) 
 end;
 
 """ This function returns the possible mutations comparing with TF, there is no information of backgroud sequence. 
@@ -2140,4 +2214,13 @@ function get_variable_site_true_false(haxb2_TF)
         push!(CD4BS_set_out, x ∈ idx_HXB2_Pro_CD4BS)
     end;
     return (v1_set_out, v2_set_out, v3_set_out, v4_set_out, v5_set_out, LD_set_out, CD4BS_set_out)
+end;
+
+function syn_or_nonsyn_simple(x)
+    flag_out = false
+    if( x != "")
+        y = split_mutant_string(x) 
+        if(y[1] != y[3]) flag_out = true end
+    end
+    return flag_out
 end;
