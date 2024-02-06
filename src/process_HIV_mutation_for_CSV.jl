@@ -241,8 +241,11 @@ function get_true_false_variable_region(vec_AA_idx, csv_raw_in)
     return vec_csv_raw_out
 end;
 
-
-function get_possible_glycan(i_mut, i_raw, date_mut_set, NUC, a_MT_set, n_poly_idx_max,  collected_time, collected_time_unique, idx_poly, idx_only_poly, n_time_max, seq_TF, csv_index_and_TF, data_num, this_frame_set, this_gene_set)
+""" This function returns the presence and absence of glycan, i.e., glycan shield and glycan hole. 
+    Consider the full genetic background comparing the set of consective 5 codons between before and after the mutaions. 
+    However, this method consider all possible combination between the before and after the mutations; the possible pair of sequence should be considered to get more accurate glycan dynamics. 
+"""
+unction get_possible_glycan_naive(i_mut, i_raw, date_mut_set, NUC, a_MT_set, n_poly_idx_max,  collected_time, collected_time_unique, idx_poly, idx_only_poly, n_time_max, seq_TF, csv_index_and_TF, data_num, this_frame_set, this_gene_set)
 #    idx_hxb2 = parse(Int, csv_index_and_TF.HXB2[i_raw])
     idx_hxb2 = parse(Int, match(r"(\d+)", csv_index_and_TF.HXB2[i_raw]).match)
     
@@ -276,7 +279,6 @@ function get_possible_glycan(i_mut, i_raw, date_mut_set, NUC, a_MT_set, n_poly_i
 
         # Don't consider the edges
         if( 7<=i_raw && (i_raw + i_raw%3 + 2*3) <= n_poly_idx_max) 
-        
             for i_fr in 1:length(this_frame_set)
                 codon_location_set = [] # that should contains the 5 types of sites. 
                 push!(codon_location_set, )
@@ -314,6 +316,103 @@ function get_possible_glycan(i_mut, i_raw, date_mut_set, NUC, a_MT_set, n_poly_i
                     end
                     aa_set_before = unique(aa_set_before)
                     aa_set_after = unique(aa_set_after)
+                    @show aa_set_before
+                    @show aa_set_after
+
+                    for x in aa_set_after
+                        x_sp = split(x, "")
+                        for y in aa_set_before
+                            y_sp = split(y, "")
+                            (n_glycan_shift_plus_temp, n_glycan_shift_minus_temp) = check_glycan_shield_hole_shift(x_sp, y_sp)
+                            if(n_glycan_shift_plus_temp) n_plus_glycan[frame_temp] += 1 end
+                            if(n_glycan_shift_minus_temp) n_minus_glycan[frame_temp] += 1 end
+                            if(n_glycan_shift_minus_temp * n_glycan_shift_plus_temp) n_glycan_shift[frame_temp] += 1 end
+                        end
+                    end
+                end
+            end
+        end # end for the if of i_raw range     
+    #end
+    return (n_plus_glycan, n_minus_glycan, n_glycan_shift)
+end;
+
+""" This function returns the presence and absence of glycan, i.e., glycan shield and glycan hole.
+    Unlike the previous version, named get_possible_glycan_naive, this function considers the possible pair of sequence to get more accurate glycan dynamics.
+    To this end, we import the paired sequences from the mutaion detection function.
+"""
+function get_possible_glycan(i_mut, i_raw, date_mut_set, NUC, a_MT_set, n_poly_idx_max,  collected_time, collected_time_unique, idx_poly, idx_only_poly, n_time_max, seq_TF, csv_index_and_TF, data_num, this_frame_set, this_gene_set)
+#    idx_hxb2 = parse(Int, csv_index_and_TF.HXB2[i_raw])
+    idx_hxb2 = parse(Int, match(r"(\d+)", csv_index_and_TF.HXB2[i_raw]).match)
+    
+    n_plus_glycan, n_minus_glycan, n_glycan_shift = zeros(Int,3), zeros(Int,3), zeros(Int,3)
+    #if( 6225<= idx_hxb2 <= 8795)
+        date_mut = date_mut_set[i_mut]
+        data_after_mut = copy(data_num[collected_time .== date_mut, :])
+        # Note, the ensemble should have only having mutation at idx_poly
+        nuc_at_idx_poly = copy(data_after_mut[:, idx_poly])
+        # this set shouldn't be empby because this site is polymorphic
+        data_after_mut = copy(data_after_mut[nuc_at_idx_poly .== a_MT_set[i_mut] , :]) 
+        data_before_mut = []
+        if(date_mut>collected_time_unique[1])                
+            n_time = collect(1:n_time_max)[collected_time_unique .== date_mut]
+            date_earlier = collected_time_unique[n_time .- 1]
+            data_before_mut = copy(data_num[collected_time .== date_earlier, :])
+        else
+            data_before_mut = copy(data_after_mut) # mutation took place at the earliest time
+        end
+
+        n_after = size(data_after_mut,1)
+        n_before = size(data_before_mut,1)
+        data_after_mut_extend = [x for i in 1:n_after , x in seq_TF]
+        data_before_mut_extend = [x for i in 1:n_before , x in seq_TF]
+        for i in 1:n_before 
+            data_before_mut_extend[i, idx_only_poly] = [NUC[a+1] for a in data_before_mut[i, :]]
+        end
+        for i in 1:n_after 
+            data_after_mut_extend[i, idx_only_poly] = [NUC[a+1] for a in data_after_mut[i, :]]
+        end
+
+        # Don't consider the edges
+        if( 7<=i_raw && (i_raw + i_raw%3 + 2*3) <= n_poly_idx_max) 
+            for i_fr in 1:length(this_frame_set)
+                codon_location_set = [] # that should contains the 5 types of sites. 
+                push!(codon_location_set, )
+                frame_temp = this_frame_set[i_fr];
+                aa_set_before = []
+                aa_set_after = []
+                codon_location = collect(1:3) # this index should extend 1 to to 2652
+                if(i_raw%3 == (frame_temp+1)%3) codon_location = i_raw .+ collect( 0:1:2) end
+                if(i_raw%3 == (frame_temp+2)%3) codon_location = i_raw .+ collect(-1:1:1) end
+                if(i_raw%3 == frame_temp%3) codon_location = i_raw .+ collect(-2:1:0) end
+                for k in -2:1:2 push!(codon_location_set, codon_location .+ 3*k) end     
+            
+                if(minimum(codon_location)>0 && maximum(codon_location)<=length(seq_TF))
+                    for n in 1:n_before
+                        aa_set_temp = []
+                        for k in 1:5
+                            if(minimum(codon_location_set[k])>0 && maximum((codon_location_set[k]))<=length(seq_TF))
+                                x = join(data_before_mut_extend[n, codon_location_set[k]])
+                                y = haskey(NUC2AA, x) ? NUC2AA[x] : "-"
+                                push!(aa_set_temp, y)
+                            end
+                        end
+                        push!(aa_set_before, join(aa_set_temp)) # Suppose we are only interested in the emergence of specific mutations, not statistical properties. 
+                    end
+                    for n in 1:n_after
+                        aa_set_temp = []
+                        for k in 1:5
+                            if(minimum(codon_location_set[k])>0 && maximum((codon_location_set[k]))<=length(seq_TF))
+                                x = join(data_after_mut_extend[n, codon_location_set[k]])
+                                y = haskey(NUC2AA, x) ? NUC2AA[x] : "-"
+                                push!(aa_set_temp, y)
+                            end
+                        end
+                        push!(aa_set_after, join(aa_set_temp))
+                    end
+                    aa_set_before = unique(aa_set_before)
+                    aa_set_after = unique(aa_set_after)
+                    @show aa_set_before
+                    @show aa_set_after
 
                     for x in aa_set_after
                         x_sp = split(x, "")
@@ -387,11 +486,8 @@ function check_glycan_shield_hole_shift(x_sp, y_sp)
     return (n_glycan_shift_plus_temp, n_glycan_shift_minus_temp)
 end;
 
-
 """
     Make_combination_of_mutations_with_genetic_background_w_glycan(csv_index_and_TF, seq_num_raw, hxb2csv)
-
-TBW
 """
 function Make_combination_of_mutations_with_genetic_background_w_glycan(csv_index_and_TF, seq_num_raw, hxb2csv)
     poly_idx = csv_index_and_TF.polymorphic
@@ -436,18 +532,29 @@ function Make_combination_of_mutations_with_genetic_background_w_glycan(csv_inde
             a_MT_set = copy(a_MT_set[perm])
             for i_mut in 1:length(date_mut_set) # this set shouldn't be empty set because we are looking at polymorpic site.
                 a_mut = NUC[a_MT_set[i_mut]+1]
+                
+                # --- Get the possible mutation at the site fully considering the genetic backgroud.  --- #
                 (date_found, this_gene_set_out, mutation_tot_string_nuc_set_out, mutation_tot_string_nuc_simple_set_out, mutation_tot_string_AA_set_out) = get_possible_mutation_AA_and_NUC(
                     i_mut, i_raw, idx_hxb2, date_mut_set, NUC, a_MT_set, a_WT, n_poly_idx_max, 
                     collected_time, collected_time_unique, idx_poly, idx_only_poly, n_time_max, 
                     seq_TF, csv_index_and_TF, data_num, this_frame_set, this_gene_set)
                 
+                # --- Alternative method to get the possible mutation using the only TF's backgrond. This (classical) method does not accurately detect mutations. --- #
+                (date_found_naive, this_gene_set_out_naive, mutation_tot_string_nuc_set_out_naive, 
+                    mutation_tot_string_nuc_simple_set_out_naive, mutation_tot_string_AA_set_out_naive) = get_possible_mutation_AA_and_NUC_naive(
+                    i_mut, i_raw, idx_hxb2, date_mut_set, NUC, a_MT_set, a_WT, n_poly_idx_max, 
+                    collected_time, collected_time_unique, idx_poly, idx_only_poly, n_time_max, 
+                    seq_TF, csv_index_and_TF, data_num, this_frame_set, this_gene_set)
+                @assert date_found == date_found_naive
+                @assert this_gene_set_out == this_gene_set_out_naive
+
                 push!(mutant_hxb2, idx_hxb2)
                 push!(mutant_nuc, a_mut)
                 push!(mutant_date_found, date_found)
                 for i_fr in 1:3 
                     #@printf("fr:%d gen:%s mut:%s mut_simple:%s mut_AA:%s\n", 
                     #i_fr, this_gene_set_out[i_fr], mutation_tot_string_nuc_set_out[i_fr], mutation_tot_string_nuc_simple_set_out[i_fr], mutation_tot_string_AA_set_out[i_fr]) 
-                    push!(mutant_gene[i_fr], this_gene_set_out[i_fr], mutation_tot_string_nuc_simple_set_out[i_fr])
+                    push!(mutant_gene[i_fr], this_gene_set_out[i_fr])
                     push!(mutant_types_set_nuc[i_fr], mutation_tot_string_nuc_set_out[i_fr]) 
                     push!(mutant_types_set_nuc_simple[i_fr], mutation_tot_string_nuc_simple_set_out[i_fr])
                     push!(mutant_types_set_AA[i_fr], mutation_tot_string_AA_set_out[i_fr])
@@ -468,6 +575,8 @@ function Make_combination_of_mutations_with_genetic_background_w_glycan(csv_inde
     return (mutant_hxb2, mutant_nuc, mutant_date_found, mutant_gene, 
             mutant_types_set_AA, mutant_types_set_nuc, mutant_types_set_nuc_simple, plus_glycan_set, minus_glycan_set, shifted_glycan_set)
 end;
+
+
 function filtering_mutations_AA(mutant_types_set_AA)
     mutant_types_set_AA_filtered = []
     for x in mutant_types_set_AA
@@ -700,15 +809,33 @@ function get_possible_mutation_AA_and_NUC(i_mut, i_raw, idx_hxb2, date_mut_set, 
         if(0 < codon_location[1] && codon_location[end] <= length(seq_TF)) 
             [push!(codon_set_tot_before, x) for x in unique([join(data_before_mut_extend[n, codon_location]) for n in 1:n_before])]
             [push!(codon_set_tot_after, x) for x in unique([join(data_after_mut_extend[n, codon_location]) for n in 1:n_after])]
-            codon_set_tot_before = copy(unique(codon_set_tot_before))
+            codon_set_tot_before_original = copy([join(data_before_mut_extend[n, codon_location]) for n in 1:n_before])
+            codon_set_tot_after_original = copy([join(data_after_mut_extend[n, codon_location]) for n in 1:n_after])
+            codon_set_tot_before= copy(unique(codon_set_tot_before))
             codon_set_tot_after = copy(unique(codon_set_tot_after))
+            
+            # The following frequency of the codon will be used if there are multiple options. 
+            num_of_codon_before = []; num_of_codon_after = []
+            [push!(num_of_codon_before, count(x .== codon_set_tot_before_original)) for x in codon_set_tot_before]
+            [push!(num_of_codon_after, count(x .== codon_set_tot_after_original)) for x in codon_set_tot_after]
+            
             """
-            @printf("cdn_bfr:%s\n", join(codon_set_tot_before, ","))
-            @printf("cdn_afr:%s\n", join(codon_set_tot_after, ","))
+            if(extract_integer(idx_hxb2)==7607)
+                @printf("cdn_bfr:%s\n", join(codon_set_tot_before, ","))
+                @printf("cdn_afr:%s\n", join(codon_set_tot_after, ","))
+            end
             """
+        
             AA_set_after = [haskey(NUC2AA,x) ? NUC2AA[x] : "-" for x in codon_set_tot_after]
             AA_set_before = [haskey(NUC2AA,x) ? NUC2AA[x] : "-" for x in codon_set_tot_before]
-            #@printf("fr:%d AA_before:%s AA_after:%s \n", i_fr, join(AA_set_before, "|"), join(AA_set_after, "|"))
+        
+            """
+            if(extract_integer(idx_hxb2)==7607)
+            flag_show = (AA_set_before != AA_set_after) && (i_raw%3 == frame_temp%3 )
+            if(flag_show)
+                @printf("fr:%d AA_before:%s AA_after:%s \n\n", i_fr, join(AA_set_before, "|"), join(AA_set_after, "|"))
+            end
+            """
             
             # --------------------- Making transition matrix that can change by a single substitution. ----------------------
             # ----> this process also consider the transition between mutations that observed at the same time. 
@@ -747,19 +874,24 @@ function get_possible_mutation_AA_and_NUC(i_mut, i_raw, idx_hxb2, date_mut_set, 
                 end
             end
             """
-            @printf("Detected Codon: before>%s & after>%s\n", join(codon_set_tot_before, "/"), join(codon_set_tot_after, "/"))
-            @printf("Detected AA: before>%s & after>%s\n", join(AA_set_before, "/"), join(AA_set_after, "/"))            
-            @printf("Possible Transition (row: before, col: after): \n")
-            print_matrix(table_paired)
-            @printf("Possible Transition (After): \n")
-            print_matrix(table_paired_after)
+            #if(extract_integer(idx_hxb2)==7607)
+            if(flag_show)
+                @printf("TF codon:%s\n", join(seq_TF[codon_location]))
+                @printf("Detected Codon: before>%s & after>%s\n", join(codon_set_tot_before, "/"), join(codon_set_tot_after, "/"))
+                @printf("Num of Codon: before>%s & after>%s\n", join(string.(num_of_codon_before), ","), join(string.(num_of_codon_after), ","))
+                @printf("Detected AA: before>%s & after>%s\n", join(AA_set_before, "/"), join(AA_set_after, "/"))            
+                @printf("Possible Transition (row: before, col: after): \n")
+                print_matrix(table_paired)
+                @printf("Possible Transition (After): \n")
+                print_matrix(table_paired_after)
+            end
             """
             # ------------------------------- Adjoint paired/unpaired mutations ----------------------------------#
             mutation_tot_string_AA = ""
             mutation_tot_string_nuc = ""
             mutation_tot_string_nuc_simple = join(unique(data_before_mut_extend[:, i_raw]), "/") * idx_hxb2 * a_mut
             if(size(codon_set_tot_after, 1)>0 || size(codon_set_tot_before,1)>0)
-                # --- Making the paires that has single nucleotide sustitution and regarding also the genetic background ----        
+                # --- Making the paires that has single nucleotide while considerng the genetic background ----        
                 # -------- Make the format to write out columns in the CSV file ----------#
                 nuc_codon_idex = csv_index_and_TF.HXB2[codon_location]
                 nuc_mut_string = join([nuc_codon_idex[1], nuc_codon_idex[3]], "-")
@@ -771,8 +903,10 @@ function get_possible_mutation_AA_and_NUC(i_mut, i_raw, idx_hxb2, date_mut_set, 
                     if(count(table_paired[:, i_after])>0)
                         after_str_nuc =  nuc_mut_string * codon_set_tot_after[i_after]
                         after_str_AA = string(i_AA) * AA_set_after[i_after]
+                        
                         before_str_nuc = join(codon_set_tot_before[table_paired[:, i_after]], "/")
                         before_str_AA = join(unique(AA_set_before[table_paired[:, i_after]]), "/")
+                        
                         push!(mutations_nuc_tot, before_str_nuc * after_str_nuc)
                         push!(mutations_AA_tot, before_str_AA * after_str_AA)
                     end
@@ -788,7 +922,6 @@ function get_possible_mutation_AA_and_NUC(i_mut, i_raw, idx_hxb2, date_mut_set, 
                             after_str_nuc_bepaired = join(codon_set_tot_after[table_paired_after[i_after, :]], "/")
                             after_str_AA_bepaired = join(unique(AA_set_after[table_paired_after[i_after, :]]), "/")
                             
-                            
                             AA_set_before_rem_gap = filter(x -> x != "-", AA_set_before)
                             codon_set_tot_before_rem_gap = filter(x -> x != "---", codon_set_tot_before)
                             tf_codon = join(seq_TF[codon_location])
@@ -797,8 +930,12 @@ function get_possible_mutation_AA_and_NUC(i_mut, i_raw, idx_hxb2, date_mut_set, 
                                 push!(mutations_AA_tot, after_str_AA_bepaired * after_str_AA)
                             # --- If variant is just gap, then accept any mutations --- #
                             elseif(AA_set_after[i_after] == "-")
-                                before_str_nuc = join(codon_set_tot_before_rem_gap, "/")
-                                before_str_AA = join(unique(AA_set_before_rem_gap), "/")
+                                codon_set_tot_before_rem_gap_copy = copy(codon_set_tot_before_rem_gap)
+                                codon_set_tot_before_rem_gap_copy[codon_set_tot_before_rem_gap_copy .== ""] .= "---"
+                                AA_set_before_rem_gap_copy = copy(AA_set_before_rem_gap)
+                                AA_set_before_rem_gap_copy[AA_set_before_rem_gap_copy .== ""] .= "-"
+                                before_str_nuc = join(codon_set_tot_before_rem_gap_copy, "/")
+                                before_str_AA = join(unique(AA_set_before_rem_gap_copy), "/")
                                 push!(mutations_nuc_tot, before_str_nuc * after_str_nuc)
                                 push!(mutations_AA_tot, before_str_AA * after_str_AA)
                             # --- If TF codons were still presence at the previous time, then assume mutation happend from T/F.  --- #                             
@@ -827,9 +964,12 @@ function get_possible_mutation_AA_and_NUC(i_mut, i_raw, idx_hxb2, date_mut_set, 
             mutation_tot_string_AA_set_out[frame_temp] = mutation_tot_string_AA
 
             """
-            @printf("fr:%d gene:%s poly_idx:%d HXB2_idx:%s nuc:%s detected:%dd\n", frame_temp, this_gene_set_out[frame_temp], i_raw, idx_hxb2, a_mut, date_found)
-            @printf("GENE:%s AA:%s NUC:%s\n", mutation_tot_string_nuc_simple, mutation_tot_string_AA, mutation_tot_string_nuc)
-            """
+            #if(extract_integer(idx_hxb2)==7607)
+            if(flag_show)
+                @printf("fr:%d gene:%s poly_idx:%d HXB2_idx:%s nuc:%s detected:%dd\n", frame_temp, this_gene_set_out[frame_temp], i_raw, idx_hxb2, a_mut, date_found)
+                @printf("GENE:%s AA:%s NUC:%s\n\n", mutation_tot_string_nuc_simple, mutation_tot_string_AA, mutation_tot_string_nuc)
+            end
+            #"""
             end # end of frame.
 
         end
@@ -837,6 +977,65 @@ function get_possible_mutation_AA_and_NUC(i_mut, i_raw, idx_hxb2, date_mut_set, 
     return (date_found, this_gene_set_out, mutation_tot_string_nuc_set_out, 
         mutation_tot_string_nuc_simple_set_out, mutation_tot_string_AA_set_out) 
 end;
+
+""" This function returns the possible mutations comparing with TF, there is no information of backgroud sequence. 
+"""
+function get_possible_mutation_AA_and_NUC_naive(i_mut, i_raw, idx_hxb2, date_mut_set, NUC, a_MT_set, a_WT, n_poly_idx_max, 
+    collected_time, collected_time_unique, idx_poly, idx_only_poly, n_time_max, seq_TF, csv_index_and_TF, data_num, this_frame_set, this_gene_set)
+    date_found = date_mut_set[i_mut]
+    a_mut = NUC[a_MT_set[i_mut]+1]
+    this_gene_set_out = ["NA" for _ in 1:3]
+    mutation_tot_string_nuc_set_out = ["NA" for _ in 1:3]
+    mutation_tot_string_nuc_simple_set_out = ["NA" for _ in 1:3]
+    mutation_tot_string_AA_set_out = ["NA" for _ in 1:3]
+
+    date_mut = date_mut_set[i_mut]
+    data_after_mut = copy(data_num[collected_time .== date_mut, :])
+    # Note, the ensemble should have only having mutation at idx_poly
+    nuc_at_idx_poly = copy(data_after_mut[:, idx_poly])
+    # this set shouldn't be empby because this site is polymorphic
+    data_after_mut = copy(data_after_mut[nuc_at_idx_poly .== a_MT_set[i_mut] , :]) 
+    
+    n_after = size(data_after_mut,1)
+    data_after_mut_extend = [x for i in 1:n_after , x in seq_TF]
+    for i in 1:n_after 
+        data_after_mut_extend[i, idx_only_poly] = [NUC[a+1] for a in data_after_mut[i, :]]
+    end
+    # -- From here need to change the code and consider the difference of frames. --#
+    this_gene = ""; mutation_tot_string_nuc = ""
+    mutation_tot_string_nuc_simple = ""; mutation_tot_string_AA = ""        
+    for i_fr in 1:length(this_frame_set)
+        frame_temp = this_frame_set[i_fr];
+        this_gene_set_out[frame_temp] = this_gene_set[i_fr]        
+        num_nuc, i_AA_set, gene_check = map_numNUC_to_numAA(idx_hxb2, frame_temp)
+        i_AA = i_AA_set[frame_temp]
+        
+        codon_set_tot_after = []
+        codon_location = collect(1:3) # this index should extend 1 to to 2652
+        if(i_raw%3 == (frame_temp+1)%3) codon_location = i_raw .+ collect( 0:1:2) end
+        if(i_raw%3 == (frame_temp+2)%3) codon_location = i_raw .+ collect(-1:1:1) end
+        if(i_raw%3 == frame_temp%3) codon_location = i_raw .+ collect(-2:1:0) end
+
+        if(0 < codon_location[1] && codon_location[end] <= length(seq_TF)) 
+            codon_tf = seq_TF[codon_location]
+            AA_tf = haskey(NUC2AA, join(codon_tf)) ? NUC2AA[join(codon_tf)] : "-"
+            [push!(codon_set_tot_after, x) for x in unique([join(data_after_mut_extend[n, codon_location]) for n in 1:n_after])]
+            codon_set_tot_after = copy(unique(codon_set_tot_after))
+            len_codon_after = length(codon_set_tot_after)
+            AA_set_after = [haskey(NUC2AA,x) ? NUC2AA[x] : "-" for x in codon_set_tot_after]
+        
+            nuc_codon_idex = csv_index_and_TF.HXB2[codon_location]
+            nuc_mut_string = join([nuc_codon_idex[1], nuc_codon_idex[3]], "-")        
+            mutation_tot_string_nuc_set_out[frame_temp] = join(codon_tf) * nuc_mut_string * join(codon_set_tot_after, "/") 
+            mutation_tot_string_nuc_simple_set_out[frame_temp] = a_WT * idx_hxb2 * a_mut
+            mutation_tot_string_AA_set_out[frame_temp] = AA_tf * i_AA * join(AA_set_after, "/") 
+        end
+    end # end of frame.
+
+return (date_found, this_gene_set_out, mutation_tot_string_nuc_set_out, 
+        mutation_tot_string_nuc_simple_set_out, mutation_tot_string_AA_set_out) 
+end;
+
 
 function is_numeric_string(s)
     ismissing(s) && return false
