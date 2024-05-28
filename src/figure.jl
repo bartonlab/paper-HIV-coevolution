@@ -23,6 +23,16 @@ gen_to_frame = Dict(
     "tat" => ["gene_fr1", "gene_fr2"],
     "pol" => ["gene_fr3"],)
 
+
+
+function get_variable_regions(i)
+    if(i ∈ 131:157) return "V1" end
+    if(i ∈ 158:196) return "V2" end
+    if(i ∈ 275:283) return "LD" end
+    if(i ∈ 296:331) return "V3" end
+    if(i ∈ 385:418) return "V4" end
+    if(i ∈ 460:470) return "V5" end
+end;
 # ------------------------- Figure trajectotry plot ------------------------------- #
 function get_trajectory_plot_CH505(csv_raw_CH505, L_fig_tot)
     #L_fig_tot = 1200
@@ -117,6 +127,17 @@ function get_trajectory_plot_CH505(csv_raw_CH505, L_fig_tot)
     annotate!(-350, 120, text(L"\textbf{C}", :left, fontsize_label_reg))
     return (p4, time_unique, x1_set_for_figures_CTL, x1_set_for_figures_CH103, x1_set_for_figures_CH235, x1_set_for_figures_strain_specific)
 end
+
+function get_collection_time(csv_raw_in)
+    name_time_collection = names(csv_raw_in)
+    colection_time = []
+    for x in split.(name_time_collection, "f_at_")
+        if(length(x)>1)
+            push!(colection_time, parse(Int, x[2]) )
+        end;
+    end
+    return colection_time 
+end;
 
 function get_selection_vs_time_plot_CH505(csv_raw_CH505, L_fig_tot)
     # --------------- Plot comparing selection and collection time ----------------- #  
