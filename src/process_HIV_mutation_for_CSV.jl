@@ -389,8 +389,9 @@ function get_possible_glycan(i_mut, i_raw, date_mut_set, NUC, a_MT_set, n_poly_i
                 if(i_raw%3 == (frame_temp+2)%3) codon_location = i_raw .+ collect(-1:1:1) end
                 if(i_raw%3 == frame_temp%3) codon_location = i_raw .+ collect(-2:1:0) end
                 for k in -2:1:2 push!(codon_location_set, codon_location .+ 3*k) end     
-            
-                if(minimum(codon_location)>0 && maximum(codon_location)<=length(seq_TF))
+                idx_codon_min = minimum([minimum(codon_location_set[k]) for k in 1:5])
+                idx_codon_max = maximum([maximum(codon_location_set[k]) for k in 1:5])
+                if(idx_codon_min > 0 && idx_codon_max <= length(seq_TF))
                     """
                     for n in 1:n_before
                         aa_set_temp = []
@@ -1579,12 +1580,16 @@ function get_jointed_RMs_for_CSV_SHIV848(csv_selection, csv_index_and_TF, fname_
             if(y != "")
                 count_flag = true
                 match_obj = match(r"(.*?)(\d+)(.*)", y)
-                letters_left = split(match_obj.captures[1], '/')
-                i_nuc_temp = parse(Int, match_obj.captures[2])
-                letter_right = match_obj.captures[3]
-                [push!(letters_left_set, z) for z in letters_left]
-                push!(letters_right_set, letter_right)
-                push!(i_nuc_set, i_nuc_temp)
+                if(isnothing(match_obj))
+                    println(y)
+                else
+                    letters_left = split(match_obj.captures[1], '/')
+                    i_nuc_temp = parse(Int, match_obj.captures[2])
+                    letter_right = match_obj.captures[3]
+                    [push!(letters_left_set, z) for z in letters_left]
+                    push!(letters_right_set, letter_right)
+                    push!(i_nuc_set, i_nuc_temp)
+                end
             end
         end
         if(count_flag)
@@ -2217,10 +2222,10 @@ function get_variable_site_true_false(haxb2_TF)
 end;
 
 function syn_or_nonsyn_simple(x)
-    flag_out = false
+    flag_out = 0
     if( x != "")
         y = split_mutant_string(x) 
-        if(y[1] != y[3]) flag_out = true end
+        if(y[1] != y[3]) flag_out = 1 end
     end
     return flag_out
 end;
