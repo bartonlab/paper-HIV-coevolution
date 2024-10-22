@@ -565,4 +565,3 @@ function get_possible_AA_with_single_NUC_mutation(input_A, NUC)
     end
     return single_mutated_AAs_unique = unique(single_mutated_AAs)
 end
-"
