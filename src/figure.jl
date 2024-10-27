@@ -789,6 +789,7 @@ function get_compare_fitness(fname_key_human_and_RMs, fname_dev, dir_name,
             date_unique_set, bool_BNB_nonBNB)
 end;
 
+
 function get_heatmap_selected_mutations_CH505(dir_name, L_fig_tot)
     set_VL_increase = ["N130D", "N279D", "K302N", "Y330H", "N334S", "H417R"];
     fname_potent = ["RM5695", "RM6070", "RM6072"]
