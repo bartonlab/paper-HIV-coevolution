@@ -1,10 +1,8 @@
-# HIV_Coevolution
-
 # Overview
 
 This repository contains and data and scripts for reproducing the results accompanying the manuscript  
 
-### Title of paper
+### Parallel HIV-1 evolutionary dynamics in humans and rhesus macaques who develop broadly neutralizing antibodies
 Kai S. Shimagaki<sup>1,2</sup>, Rebecca M. Lynch<sup>3</sup>, and John P. Barton<sup>1,2,#</sup>
 
 <sup>1</sup> Department of Physics and Astronomy, University of California, Riverside  
@@ -12,7 +10,8 @@ Kai S. Shimagaki<sup>1,2</sup>, Rebecca M. Lynch<sup>3</sup>, and John P. Barton
 <sup>3</sup> Department of Microbiology, Immunology and Tropical Medicine, School of Medicine and Health Sciences, George Washington University  
 <sup>#</sup> correspondence to [jpbarton@pitt.edu](mailto:jpbarton@pitt.edu)  
 
-The preprint is available at [bioRxiv](https://doi.org/10.1101/2024.07.12.603090) .
+The preprint is available at [bioRxiv](https://doi.org/10.1101/2024.07.12.603090).
+
 
 # Contents
 
