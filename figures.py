@@ -1755,7 +1755,11 @@ def plot_trajectory_selection_shiv(s_files, traj_files, tags, rms, filename='fig
         x_vals = []
         s_vals = []
         for c in cat:
-            s_vals.append(df_s[df_s['types']==c]['selection_RMs'])
+            if c=='glycan':
+                df_sub = df_s[df_s['types'].str.contains('glycan')]
+            else:
+                df_sub = df_s[df_s['types']==c]
+            s_vals.append(df_sub['selection_RMs'])
             x_vals.append(np.random.normal(cat.index(c)+0.5, x_std, len(s_vals[-1])))
     
         ## a/b/c.1 -- frequency trajectory
@@ -1776,10 +1780,13 @@ def plot_trajectory_selection_shiv(s_files, traj_files, tags, rms, filename='fig
             # freqs.append(y)
 
             df_temp = df_traj[df_traj['id']==id]
+            idx = -1
+            if df_temp['types'].iloc[0] in cat:
+                idx = cat.index(df_temp['types'].iloc[0])
 
             times.append(df_temp['date'])
             freqs.append(df_temp['frequency'])
-            colors.append(c_color[cat.index(df_temp['types'].iloc[0])])
+            colors.append(c_color[idx])
         
         lineprops = {'lw': SIZELINE, 'ls': '-', 'alpha': 0.5 }
         
@@ -1965,12 +1972,12 @@ def plot_fitness_comparison(f_files, tags, filename='fig-f-compare'):
         f_hiv_vals  = []
 
         df_f_sub = df_f[df_f['breadth']==True]
-        f_shiv_vals.append(np.array(df_f_sub['F_jointRMs'], float))
-        f_hiv_vals.append(np.array(df_f_sub['F_HIV'], float))
+        f_shiv_vals.append(np.array(df_f_sub['F_jointedRMs'], float))
+        f_hiv_vals.append(np.array(df_f_sub['F_%s' % tags[k]], float))
 
         df_f_sub = df_f[df_f['breadth']==False]
-        f_shiv_vals.append(np.array(df_f_sub['F_jointRMs'], float))
-        f_hiv_vals.append(np.array(df_f_sub['F_HIV'], float))
+        f_shiv_vals.append(np.array(df_f_sub['F_jointedRMs'], float))
+        f_hiv_vals.append(np.array(df_f_sub['F_%s' % tags[k]], float))
     
         ## fitness comparison
         
@@ -1988,7 +1995,7 @@ def plot_fitness_comparison(f_files, tags, filename='fig-f-compare'):
 
         mp.plot(type='scatter', ax=ax_f[k], x=f_shiv_vals, y=f_hiv_vals, colors=[C_BNAB, C_NEU], plotprops=scatterprops, **pprops)
 
-        print(tags[k], st.pearsonr(df_f['F_jointRMs'], df_f['F_HIV']))
+        print(tags[k], st.pearsonr(df_f['F_jointedRMs'], df_f['F_%s' % tags[k]]))
 
         ## legend
 
@@ -2065,18 +2072,18 @@ def plot_fitness_comparison_horizontal(f_files, tags, filename='fig-f-compare-h'
 
         if use_breadth:
             df_f_sub = df_f[df_f['breadth']==True]
-            f_shiv_vals.append(np.array(df_f_sub['F_jointRMs'], float))
-            f_hiv_vals.append(np.array(df_f_sub['F_HIV'], float))
+            f_shiv_vals.append(np.array(df_f_sub['F_jointedRMs'], float))
+            f_hiv_vals.append(np.array(df_f_sub['F_%s' % tags[k]], float))
 
             df_f_sub = df_f[df_f['breadth']==False]
-            f_shiv_vals.append(np.array(df_f_sub['F_jointRMs'], float))
-            f_hiv_vals.append(np.array(df_f_sub['F_HIV'], float))
+            f_shiv_vals.append(np.array(df_f_sub['F_jointedRMs'], float))
+            f_hiv_vals.append(np.array(df_f_sub['F_%s' % tags[k]], float))
 
             c_vals = [C_BNAB, C_NEU]
 
         else:
-            f_shiv_vals.append(np.array(df_f['F_jointRMs'], float))
-            f_hiv_vals.append(np.array(df_f['F_HIV'], float))
+            f_shiv_vals.append(np.array(df_f['F_jointedRMs'], float))
+            f_hiv_vals.append(np.array(df_f['F_%s' % tags[k]], float))
             c_vals = [C_NEU]
     
         ## fitness comparison
@@ -2095,7 +2102,7 @@ def plot_fitness_comparison_horizontal(f_files, tags, filename='fig-f-compare-h'
 
         mp.plot(type='scatter', ax=ax_f[k], x=f_shiv_vals, y=f_hiv_vals, colors=c_vals, plotprops=scatterprops, **pprops)
 
-        print(tags[k], st.pearsonr(df_f['F_jointRMs'], df_f['F_HIV']))
+        print(tags[k], st.pearsonr(df_f['F_jointedRMs'], df_f['F_%s' % tags[k]]))
 
         ## legend
 
@@ -2212,40 +2219,40 @@ def plot_fitness_gain_v_time(f_files, tags, t_breadth=None, use_breadth=True, fi
                 c_vals.append(C_NEU)
                 rm_list.append(rm)
 
-        ## diminishing returns epistasis (power law) curve fitting
+        # ## diminishing returns epistasis (power law) curve fitting
 
-        t_fit = np.arange(0, np.max([np.max(_t) for _t in t_vals]), 1)
-        f_fit_broad = []
-        f_fit_narrow = []
+        # t_fit = np.arange(0, np.max([np.max(_t) for _t in t_vals]), 1)
+        # f_fit_broad = []
+        # f_fit_narrow = []
 
-        if use_breadth:
+        # if use_breadth:
 
-            def df_power_law(t, ab):
-                return ((ab[1]*t + 1)**ab[0]) - 1
+        #     def df_power_law(t, ab):
+        #         return ((ab[1]*t + 1)**ab[0]) - 1
             
-            def loss(ab, *args):
-                t  = args[0]
-                df = args[1]
-                return df - df_power_law(t, ab)
+        #     def loss(ab, *args):
+        #         t  = args[0]
+        #         df = args[1]
+        #         return df - df_power_law(t, ab)
             
-            ab_fit = []
+        #     ab_fit = []
 
-            print(tags[k])
-            print('\talpha\t\tbeta')
+        #     print(tags[k])
+        #     print('\talpha\t\tbeta')
 
-            for label, t_data, f_data in [['broad', t_broad, f_broad], ['narrow', t_narrow, f_narrow]]:
-                t_data = np.concatenate(tuple(t_data), axis=None)
-                f_data = np.concatenate(tuple(f_data), axis=None)
+        #     for label, t_data, f_data in [['broad', t_broad, f_broad], ['narrow', t_narrow, f_narrow]]:
+        #         t_data = np.concatenate(tuple(t_data), axis=None)
+        #         f_data = np.concatenate(tuple(f_data), axis=None)
 
-                ab_data = so.leastsq(loss, (1, 0), args=(t_data, f_data))[0]
-                ab_fit.append(ab_data)
+        #         ab_data = so.leastsq(loss, (1, 0), args=(t_data, f_data))[0]
+        #         ab_fit.append(ab_data)
 
-                print('%s\t%.2e\t%.2e' % (label, ab_data[0], ab_data[1]))
+        #         print('%s\t%.2e\t%.2e' % (label, ab_data[0], ab_data[1]))
             
-            print('')
+        #     print('')
 
-            f_fit_broad = df_power_law(t_fit, ab_fit[0])
-            f_fit_narrow = df_power_law(t_fit, ab_fit[1])
+        #     f_fit_broad = df_power_law(t_fit, ab_fit[0])
+        #     f_fit_narrow = df_power_law(t_fit, ab_fit[1])
         
     
         ## fitness gain
@@ -2267,7 +2274,7 @@ def plot_fitness_gain_v_time(f_files, tags, t_breadth=None, use_breadth=True, fi
         mp.line(              ax=ax_f[k], x=t_vals, y=f_vals,              colors=c_vals, plotprops=lineprops,  **pprops)
         mp.plot(type='error', ax=ax_f[k], x=t_vals, y=f_vals, yerr=f_stds, colors=c_vals, plotprops=errorprops, **pprops)
         
-        mp.line(ax=ax_f[k], x=[t_fit, t_fit], y=[f_fit_broad, f_fit_narrow], colors=[C_BNAB, C_NEU], plotprops=dashlineprops,  **pprops)
+        # mp.line(ax=ax_f[k], x=[t_fit, t_fit], y=[f_fit_broad, f_fit_narrow], colors=[C_BNAB, C_NEU], plotprops=dashlineprops,  **pprops)
 
         ## highlight times when breadth established
 
@@ -2287,7 +2294,7 @@ def plot_fitness_gain_v_time(f_files, tags, t_breadth=None, use_breadth=True, fi
         if k==0 and use_breadth:
             legendprops = dict(lw=0, s=SMALLSIZEDOT, marker='o', alpha=1, clip_on=False)
             x_legend = 560
-            y_legend = 8.5 # - 2.5
+            y_legend = 8.5 - 2.5
             dx_legend = 25
             dy_legend = 2.5
             label_legend = ['Developed bnAbs', 'RM6072', 'No bnAbs']
@@ -2300,9 +2307,9 @@ def plot_fitness_gain_v_time(f_files, tags, t_breadth=None, use_breadth=True, fi
                 mp.scatter(ax=ax_f[k], x=[x_legend], y=[y_legend + dy_legend + 0.5], facecolor=['none'], edgecolor=[C_BNAB], plotprops=scatterprops, **pprops)
                 ax_f[k].text(x_legend + dx_legend, y_legend + dy_legend, 'Breadth established', **DEF_LABELPROPS)
 
-            if use_breadth:
-                mp.line(ax=ax_f[k], x=[[x_legend-13, x_legend+11]], y=[[y_legend - 3*dy_legend + 0.5, y_legend - 3*dy_legend + 0.5]], colors=[BKCOLOR], plotprops=dashlineprops, **pprops)
-                ax_f[k].text(x_legend + dx_legend, y_legend - 3*dy_legend, 'Power law fit', **DEF_LABELPROPS)
+            # if use_breadth:
+            #     mp.line(ax=ax_f[k], x=[[x_legend-13, x_legend+11]], y=[[y_legend - 3*dy_legend + 0.5, y_legend - 3*dy_legend + 0.5]], colors=[BKCOLOR], plotprops=dashlineprops, **pprops)
+            #     ax_f[k].text(x_legend + dx_legend, y_legend - 3*dy_legend, 'Power law fit', **DEF_LABELPROPS)
 
 
     ## legends and labels
@@ -2350,9 +2357,9 @@ def plot_fitness_gain_v_time_categories(f_files, tags, t_breadth=None, use_bread
     ax_f = [[plt.subplot(gs_f[0][i, 0]) for i in range(len(categories))],
             [plt.subplot(gs_f[1][i, 0]) for i in range(len(categories)-1)]]
 
-    f_lim    = [0, 10]
-    f_ticks  = [0, 5, 10]
-    f_mticks = [2.5, 7.5]
+    f_lim    = [0, 15]
+    f_ticks  = [0, 5, 10, 15]
+    f_mticks = [2.5, 7.5, 12.5]
     
     x_lim    = [[0, 800], [0, 900]]
     x_ticks  = [[0, 200, 400, 600, 800], [0, 200, 400, 600, 800]]
@@ -2518,10 +2525,10 @@ def plot_fitness_gain_v_time_categories(f_files, tags, t_breadth=None, use_bread
 
         if k==0 and use_breadth:
             legendprops = dict(lw=0, s=SMALLSIZEDOT, marker='o', alpha=1, clip_on=False)
-            x_legend = 20
-            y_legend = 9.5 
+            x_legend = 580 # 20
+            y_legend = 3.0 # 9.5 
             dx_legend = 25/1.5
-            dy_legend = 2.5/3
+            dy_legend = 2.5/3 * (15/10)
             label_legend = ['Developed bnAbs', 'RM6072', 'No bnAbs']
             color_legend = [C_BNAB, C_MPL, C_NEU]
             for i in range(3):
