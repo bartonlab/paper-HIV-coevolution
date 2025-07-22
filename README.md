@@ -26,7 +26,7 @@ Larger datasets, including sequence files, are available on [Zenodo](https://zen
 ---
 # Inference of Selection Coefficients and Fitness Values
 
-This document describes the computational pipeline used to infer selection coefficients and compute fitness values from sequence data.
+This document describes the computational pipeline used to infer selection coefficients and compute fitness values from sequence data. The soruce code is written in `jobs/src/inf.cpp` .
 > The core inference code was adapted from the prior work by Sohail et al. (2021) [MPL-inference](https://github.com/bartonlab/paper-MPL-inference).
 
 ## Overview of Steps
