@@ -33,7 +33,7 @@ This document describes the computational pipeline used to infer selection coeff
 
 ### 0. Sequence Preprocessing
 
-* Process raw sequences and generate multiple sequence alignments using **HIVAlign**.
+* Process raw sequences and generate multiple sequence alignments using [HIVAlign](https://www.hiv.lanl.gov/content/sequence/VIRALIGN/viralign.html) from the [Los Alamos National Laboratory HIV database](https://www.hiv.lanl.gov/content/index).
 * Ensure that each sequence is associated with a collection time point.
 * Data preprocessing and additional details are described in the prior study by Sohail et al. (2021) [MPL-inference](https://github.com/bartonlab/paper-MPL-inference).
 
@@ -52,12 +52,14 @@ $$
 \mathbf{g} = (g_1, g_2, \ldots, g_L) = (g_i)_{i=1}^L
 $$
 
+where $g_i$ represents one of the categorical variables (e.g., `A`, `C`, `G`, or `T` for DNA). For convenience, we map these categorical variables to numbers ($1$ to $q$).
+
 * This population evolves under **selection**, **mutation**, and **recombination**.
   
 * The selection coefficient vector is defined as:
 
 $$
-s = (s_{1,1}, \ldots, s_{1,q}, s_{2,1}, \ldots, s_{L,q}) = \left( s_{i,a} \right)_{i=1,\ldots,L;\; a=1,\ldots,q}
+s = (s_{1,1}, \ldots, s_{1,q}, s_{2,1}, \ldots, s_{L,q}) = \left( s_{i,a} \right)_{i=1,\ldots,L; a=1,\ldots,q}
 $$
 
 
@@ -65,9 +67,10 @@ $$
 * We model **allele frequency dynamics**, defined as the population average at each time point $t_k$:
 
 $$
-x_{i,a}(t_k) = \langle \delta_{g_i, a} \rangle_{t_k}
+x_{i,a}(t_k) = \langle \delta_{g_i, a} \rangle_{t_k}~,
 $$
 
+where $\delta_{a,b}$ equals 1 when $a=b$, 0 otherwise.
 
 We assume allele frequencies evolve over time according to a distribution conditioned on selection coefficients $s$. The joint distribution is modeled as a Markov chain:
 
@@ -104,18 +107,7 @@ $$
 \hat{s} = (C + \gamma I)^{-1} (\Delta x - \Delta u)
 $$
 
-Where:
-
-* $\Delta x$ is the **net change in allele frequencies** over the observed time course:
-
-$$
-\Delta x = \sum_{k=0}^{K} ( x(t_{k+1}) - x(t_k) ) = x(t_{K+1}) - x(t_0)
-$$
-
-  with time points $t_0, t_1, \ldots, t_{K+1}$.
-
-* $\Delta u$ is the **expected net change in allele frequencies due to mutation**.
-
+### Covariance matrix
 * $C$ is the **integrated covariance matrix** over time:
 
 $$
@@ -131,13 +123,13 @@ $$
   x_{i,a}(1 - x_{i,a}) & \text{if } i = j
   \end{cases}
   $$
-
-  Where:
-
+  
   * $x_{i,a}$ is the marginal frequency of allele $a$ at site $i$
-  * $x_{ij,ab}$ is the joint frequency of allele $a$ at site $i$ and allele $b$ at site $j$
+  * $x_{ij,ab}$ is the pairwise frequency of allele $a$ at site $i$ and allele $b$ at site $j$
+  * `computeAlleleFrequencies` computes single and pairwise allele frequencies.
+  * `updateCovariance` computes covariance matrix using single and pairwise frequencies. 
 
-#### Covariance Matrix Estimation
+### Integrate Covariance Matrix
 
 Accurate estimation of $C$ is challenging due to limited sample size and the large number of site pairs. To improve robustness, we apply **linear interpolation** of covariance between timepoints:
 
@@ -149,31 +141,40 @@ Where:
 
 * $x_{ij}^{\tau} = \tau x_{ij}(t_{k+1}) + (1 - \tau) x_{ij}(t_k)$
 * $x_i^{\tau} = \tau x_i(t_{k+1}) + (1 - \tau) x_i(t_k)$
+* `updateCovarianceIntegrate` computes the integrated covariance matrix using the piecewise linear interpolation. 
 
 This interpolation is done for each interval $[t_k, t_{k+1}]$, and the results are summed over time to obtain the final integrated covariance matrix.
 
+
+### Net frequency change
+
+* $\Delta x$ is the **net change in allele frequencies** over the observed time course:
+
+$$
+\Delta x = \sum_{k=0}^{K} ( x(t_{k+1}) - x(t_k) ) = x(t_{K+1}) - x(t_0)
+$$
+
+  with time points $t_0, t_1, \ldots, t_{K+1}$.
+
+
+### Expected frequency change due to mutation
+
+* $\Delta u$ is the **expected net change in allele frequencies due to mutation**.
+* `updateMuIntegrate` computes $\Delta u$ .
+
+
 #### Regularization Term
 
-* $\gamma$ is a regularization parameter derived from the prior assumption on the selection coefficients.
-* We assume a **Gaussian prior** on $\boldsymbol{s}$:
+$\gamma$ is a regularization parameter derived from the prior assumption on the selection coefficients.
+We assume a **Gaussian prior** on $\boldsymbol{s}$:
 
 $$
-p(\boldsymbol{s}) \propto \exp\left(-\frac{\gamma}{2} \| \boldsymbol{s} \|^2\right), \quad \text{with } \| \boldsymbol{s} \|^2 = \sum_{i,a} s_{i,a}^2
+p(\boldsymbol{s}) \propto \exp\left(-\frac{\gamma}{2} \| \boldsymbol{s} \|^2\right), \quad \text{with } \| \boldsymbol{s} \|^2 = \sum_{i,a} s_{i,a}^2 
 $$
 
-* $d$ is the dimension of $\boldsymbol{s}$, i.e., $d = L \times q$.
+Here, $d$ is the dimension of $\boldsymbol{s}$, i.e., $d = L \times q$.
 
----
-
-### 3. Computation of Fitness Values
-
-Using the inferred selection coefficients $\boldsymbol{s}$, we compute the **fitness** of any genotype $\boldsymbol{g} = (g_1, \ldots, g_L)$, where $g_i = 1, \ldots, q$, as:
-
-$$
-F(\boldsymbol{g}) = 1 + \sum_{i=1}^{L} s_i(g_i)
-$$
-
-> Note: The absolute offset (e.g., "1") in fitness values is arbitrary, as only **relative fitness** is meaningful in our context.
+* `regularizeCovariance` updates covariance matrix by introducing regularization.
 
 ---
 
