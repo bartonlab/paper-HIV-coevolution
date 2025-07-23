@@ -29,13 +29,43 @@ Larger datasets, including sequence files, are available on [Zenodo](https://zen
 This document describes the computational pipeline used to infer selection coefficients and compute fitness values from sequence data. The soruce code is written in `jobs/src/inf.cpp` .
 > The core inference code was adapted from the prior work by Sohail et al. (2021) [MPL-inference](https://github.com/bartonlab/paper-MPL-inference).
 
+
+---
+## Summary of Code Structure 
+
+Here we summarize main functions for obtaining the inferred selection coefficients from input sequences. 
+
+| Step | Description                                                                                    | Function                    | Source File        |
+| ---- | ---------------------------------------------------------------------------------------------- | --------------------------- | ------------------ |
+| 1    | Filter out sequences that lack collection time metadata and save them in a clean format.       | `filter_sequences`          | `HIV.py`           |
+| 2    | Remove sequences and alignment sites that contain excessive gaps.                              | `filter_excess_gaps`        | `HIV.py`           |
+| 3    | Sort sequences chronologically based on their collection times.                                | `order_sequences`           | `HIV.py`           |
+| 4    | Impute ambiguous nucleotides using the most frequently observed base at each site.             | `impute_ambiguous`          | `HIV.py`           |
+| 5    | Convert nucleotide alignment into an MPL-compatible format. Optionally return state/time data. | `save_MPL_alignment`        | `HIV.py`           |
+| 6    | Compute allele frequency trajectories from sequence data.                                      | `computeAlleleFrequencies`  | `jobs/src/inf.cpp` |
+| 7    | Estimate covariance matrices from allele frequency data.                                       | `estimateCovariance`        | `jobs/src/inf.cpp` |
+| 8    | Integrate covariance matrices over time using linear interpolation.                            | `updateCovarianceIntegrate` | `jobs/src/inf.cpp` |
+| 9    | Apply regularization to the integrated covariance matrix.                                      | `regularizeCovariance`      | `jobs/src/inf.cpp` |
+| 10   | Calculate the net mutation flux over time.                                                     | `computeMutationFlux`       | `jobs/src/inf.cpp` |
+| 11   | Save the inferred selection coefficients.                                                      | `sMAP`                      | `jobs/src/inf.cpp` |
+
+
 ## Overview of Steps
+
 
 ### 0. Sequence Preprocessing
 
-* Process raw sequences and generate multiple sequence alignments using [HIVAlign](https://www.hiv.lanl.gov/content/sequence/VIRALIGN/viralign.html) from the [Los Alamos National Laboratory HIV database](https://www.hiv.lanl.gov/content/index).
-* Ensure that each sequence is associated with a collection time point.
-* Data preprocessing and additional details are described in the prior study by Sohail et al. (2021) [MPL-inference](https://github.com/bartonlab/paper-MPL-inference).
+* Raw sequences are processed and aligned using [HIVAlign](https://www.hiv.lanl.gov/content/sequence/VIRALIGN/viralign.html) from the [Los Alamos National Laboratory HIV database](https://www.hiv.lanl.gov/content/index).
+* Data preprocessing code and additional methodological details are described in the prior study by Sohail et al. (2021): [MPL-inference](https://github.com/bartonlab/paper-MPL-inference).
+* The following steps are performed to prepare the sequences:
+
+  * Remove sequences with excessive gaps to ensure data quality.
+  * Exclude sequences that do not have valid collection time metadata.
+  * Sort sequences by their collection time points.
+  * Convert the cleaned alignment into a format compatible with the MPL inference process.
+* Each sequence must be associated with a valid collection time for temporal analysis.
+* These preprocessing steps are implemented in `HIV.py` and demonstrated in the notebook `HIV-analysis.ipynb`.
+
 
 ---
 
@@ -175,6 +205,7 @@ $$
 Here, $d$ is the dimension of $\boldsymbol{s}$, i.e., $d = L \times q$.
 
 * `regularizeCovariance` updates covariance matrix by introducing regularization.
+
 
 ---
 
